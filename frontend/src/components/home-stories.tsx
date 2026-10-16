@@ -1,20 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { UserPlus, Plus, Check, X, ChevronLeft, ChevronRight, Sparkles, Trash2 } from 'lucide-react';
+import { Plus, X, ChevronLeft, ChevronRight, Sparkles, Trash2, Volume2, VolumeX } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CONTENT_UPDATED_EVENT } from '@/lib/content-store';
 import { AUTH_CHANGED_EVENT, getCurrentUser } from '@/lib/user-profiles';
-import { fetchStories, deleteStoryApi, toggleFollowApi } from '@/lib/api';
+import { fetchStories, deleteStoryApi, resolveMediaUrl } from '@/lib/api';
 import type { StoryItem } from '@/lib/types';
 
 export function HomeStories() {
   const navigate = useNavigate();
   const [currentUser, setCurrentUser] = useState(getCurrentUser());
-  const [following, setFollowing] = useState(false);
   const [stories, setStories] = useState<StoryItem[]>([]);
+  const [activePlaylist, setActivePlaylist] = useState<StoryItem[]>([]);
   const [activeStoryIndex, setActiveStoryIndex] = useState<number | null>(null);
   const [progress, setProgress] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
+
+  const videoRef = useRef<HTMLVideoElement | null>(null);
 
   const loadStories = async () => {
     const user = getCurrentUser();
@@ -39,44 +42,115 @@ export function HomeStories() {
     };
   }, []);
 
-  // Story playback timer
+  // Group all stories by author so each user has strictly ONE unique circle in the tray
+  const storiesByAuthor = useMemo(() => {
+    const map = new Map<string, StoryItem[]>();
+    for (const story of stories) {
+      const key = story.author?.id || story.author?.username || story.id;
+      if (!map.has(key)) {
+        map.set(key, []);
+      }
+      map.get(key)!.push(story);
+    }
+    return map;
+  }, [stories]);
+
+  // Current logged in user's stories
+  const userStories = useMemo(() => {
+    const byId = currentUser?.id ? storiesByAuthor.get(currentUser.id) : undefined;
+    const byUsername = currentUser?.username ? storiesByAuthor.get(currentUser.username) : undefined;
+    return byId || byUsername || [];
+  }, [currentUser, storiesByAuthor]);
+
+  const hasUserStory = userStories.length > 0;
+  const userStory = userStories[0];
+
+  // Unique other creator stories (1 circle per creator)
+  const uniqueCreatorStories = useMemo(() => {
+    const list: { key: string; author: StoryItem['author']; stories: StoryItem[]; latestStory: StoryItem }[] = [];
+    storiesByAuthor.forEach((authorStories, key) => {
+      if (key === currentUser?.id || key === currentUser?.username) return;
+      if (authorStories.length > 0) {
+        list.push({
+          key,
+          author: authorStories[0].author,
+          stories: authorStories,
+          latestStory: authorStories[0],
+        });
+      }
+    });
+    return list;
+  }, [storiesByAuthor, currentUser]);
+
+  const currentViewStory = activeStoryIndex !== null ? activePlaylist[activeStoryIndex] : null;
+
+  // Determine if active story is a video
+  const isVideo = useMemo(() => {
+    if (!currentViewStory) return false;
+    const type = currentViewStory.media_type;
+    const url = currentViewStory.media_url || '';
+    return (
+      type === 'video' ||
+      url.endsWith('.mp4') ||
+      url.endsWith('.webm') ||
+      url.includes('.mp4') ||
+      url.includes('video')
+    );
+  }, [currentViewStory]);
+
+  const resolvedMedia = useMemo(() => {
+    if (!currentViewStory) return '';
+    return resolveMediaUrl(currentViewStory.media_url);
+  }, [currentViewStory]);
+
+  // Handle video autoplay and playback changes
   useEffect(() => {
-    if (activeStoryIndex === null || isPaused) return;
-
-    const interval = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 100) {
-          // Advance to next story or close
-          if (activeStoryIndex < stories.length - 1) {
-            setActiveStoryIndex((curr) => (curr !== null ? curr + 1 : null));
-            return 0;
-          } else {
-            setActiveStoryIndex(null);
-            return 0;
+    if (isVideo && videoRef.current) {
+      videoRef.current.currentTime = 0;
+      videoRef.current.muted = isMuted;
+      const playPromise = videoRef.current.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((err) => {
+          console.warn('Video autoPlay prevented, retrying muted:', err);
+          if (videoRef.current) {
+            videoRef.current.muted = true;
+            setIsMuted(true);
+            videoRef.current.play().catch(() => {});
           }
-        }
-        return prev + 2; // 5 seconds per story
-      });
-    }, 100);
+        });
+      }
+    }
+  }, [activeStoryIndex, activePlaylist, isVideo]);
 
-    return () => clearInterval(interval);
-  }, [activeStoryIndex, isPaused, stories.length]);
+  // Handle pause / resume
+  useEffect(() => {
+    if (isVideo && videoRef.current) {
+      if (isPaused) {
+        videoRef.current.pause();
+      } else {
+        videoRef.current.play().catch(() => {});
+      }
+    }
+  }, [isPaused, isVideo]);
 
-  const userStory = stories.find((s) => s.author?.username === currentUser.username);
-  const hasUserStory = !!userStory;
-
-  const handleOpenStory = (index: number) => {
-    setActiveStoryIndex(index);
-    setProgress(0);
-    setIsPaused(false);
-  };
-
+  // Next / Prev navigation
   const handleNextStory = () => {
-    if (activeStoryIndex !== null && activeStoryIndex < stories.length - 1) {
+    if (activeStoryIndex !== null && activeStoryIndex < activePlaylist.length - 1) {
       setActiveStoryIndex(activeStoryIndex + 1);
       setProgress(0);
     } else {
-      setActiveStoryIndex(null);
+      // Advance to next creator's stories if available
+      const currentAuthorKey = activePlaylist[0]?.author?.id || activePlaylist[0]?.author?.username;
+      const creatorIdx = uniqueCreatorStories.findIndex((c) => c.key === currentAuthorKey);
+      if (creatorIdx >= 0 && creatorIdx < uniqueCreatorStories.length - 1) {
+        const nextCreator = uniqueCreatorStories[creatorIdx + 1];
+        setActivePlaylist(nextCreator.stories);
+        setActiveStoryIndex(0);
+        setProgress(0);
+      } else {
+        setActiveStoryIndex(null);
+        setActivePlaylist([]);
+      }
     }
   };
 
@@ -84,27 +158,63 @@ export function HomeStories() {
     if (activeStoryIndex !== null && activeStoryIndex > 0) {
       setActiveStoryIndex(activeStoryIndex - 1);
       setProgress(0);
+    } else {
+      // Go back to previous creator's last story
+      const currentAuthorKey = activePlaylist[0]?.author?.id || activePlaylist[0]?.author?.username;
+      const creatorIdx = uniqueCreatorStories.findIndex((c) => c.key === currentAuthorKey);
+      if (creatorIdx > 0) {
+        const prevCreator = uniqueCreatorStories[creatorIdx - 1];
+        setActivePlaylist(prevCreator.stories);
+        setActiveStoryIndex(prevCreator.stories.length - 1);
+        setProgress(0);
+      }
     }
   };
 
-  const currentViewStory = activeStoryIndex !== null ? stories[activeStoryIndex] : null;
+  // Story playback timer for images (5 seconds per image)
+  useEffect(() => {
+    if (activeStoryIndex === null || isPaused || isVideo) return;
+
+    const interval = setInterval(() => {
+      setProgress((prev) => {
+        if (prev >= 100) {
+          handleNextStory();
+          return 0;
+        }
+        return prev + 2; // 5 seconds per story
+      });
+    }, 100);
+
+    return () => clearInterval(interval);
+  }, [activeStoryIndex, isPaused, isVideo, activePlaylist.length]);
+
+  const handleOpenUserStory = () => {
+    if (hasUserStory) {
+      setActivePlaylist(userStories);
+      setActiveStoryIndex(0);
+      setProgress(0);
+      setIsPaused(false);
+    } else {
+      navigate('/create?type=story');
+    }
+  };
+
+  const handleOpenCreatorStory = (creatorStories: StoryItem[]) => {
+    setActivePlaylist(creatorStories);
+    setActiveStoryIndex(0);
+    setProgress(0);
+    setIsPaused(false);
+  };
 
   return (
     <>
-      <section className="stories" aria-label="Stories and friend discovery">
-        {/* Your Story Card: If user has an active story, show glowing ring and view on click; '+' icon opens create */}
+      <section className="stories" aria-label="Stories and creator highlights">
+        {/* Your Story Card: 1 circle per user */}
         <motion.div
           whileHover={{ scale: 1.03, y: -2 }}
           whileTap={{ scale: 0.96 }}
           className={`story-card add-story ${hasUserStory ? 'has-active-story' : ''}`}
-          onClick={() => {
-            if (hasUserStory) {
-              const idx = stories.findIndex((s) => s.author.username === currentUser.username);
-              handleOpenStory(idx >= 0 ? idx : 0);
-            } else {
-              navigate('/create?type=story');
-            }
-          }}
+          onClick={handleOpenUserStory}
           style={{ cursor: 'pointer' }}
         >
           <span className={`story-avatar ${hasUserStory ? 'has-ring ring-user-active' : ''}`}>
@@ -124,46 +234,26 @@ export function HomeStories() {
             </i>
           </span>
           <b>{hasUserStory ? 'Your Story' : 'Add Story'}</b>
-          <small>{hasUserStory ? userStory?.time || 'Active now' : '24h update'}</small>
+          <small>{hasUserStory ? (userStories.length > 1 ? `${userStories.length} updates` : userStory?.time || 'Active') : '24h update'}</small>
         </motion.div>
 
-        {/* Find Friends Card */}
-        <motion.button
-          type="button"
-          whileHover={{ scale: 1.03, y: -2 }}
-          whileTap={{ scale: 0.96 }}
-          className={`story-card find-friends ${following ? 'is-following' : ''}`}
-          onClick={() => setFollowing(!following)}
-        >
-          <span className="friend-icon">
-            {following ? <Check size={18} strokeWidth={2.5} /> : <UserPlus size={18} strokeWidth={2} />}
-          </span>
-          <b>{following ? 'Following' : 'Find Friends'}</b>
-          <small>{following ? 'Suggestions ready' : 'Discover creators'}</small>
-        </motion.button>
-
-        {/* Following Creator Stories */}
-        {stories
-          .filter((story) => story.author.username !== currentUser.username)
-          .map((story) => {
-            const actualIndex = stories.findIndex((s) => s.id === story.id);
-            return (
-              <motion.div
-                key={story.id}
-                whileHover={{ scale: 1.03, y: -2 }}
-                whileTap={{ scale: 0.97 }}
-                className="story-card creator-story"
-                onClick={() => handleOpenStory(actualIndex)}
-                style={{ cursor: 'pointer' }}
-              >
-                <span className="story-avatar has-ring">
-                  <img src={story.author.avatar} alt={story.author.name} />
-                </span>
-                <b>{story.author.name}</b>
-                <small>{story.time}</small>
-              </motion.div>
-            );
-          })}
+        {/* Distinct Creator Stories: strictly ONE circle per unique user */}
+        {uniqueCreatorStories.map((creator) => (
+          <motion.div
+            key={creator.key}
+            whileHover={{ scale: 1.03, y: -2 }}
+            whileTap={{ scale: 0.97 }}
+            className="story-card creator-story"
+            onClick={() => handleOpenCreatorStory(creator.stories)}
+            style={{ cursor: 'pointer' }}
+          >
+            <span className="story-avatar has-ring">
+              <img src={creator.author.avatar} alt={creator.author.name} />
+            </span>
+            <b>{creator.author.name}</b>
+            <small>{creator.stories.length > 1 ? `${creator.stories.length} stories` : creator.latestStory.time}</small>
+          </motion.div>
+        ))}
       </section>
 
       {/* Story Viewer Modal */}
@@ -182,9 +272,9 @@ export function HomeStories() {
               onTouchStart={() => setIsPaused(true)}
               onTouchEnd={() => setIsPaused(false)}
             >
-              {/* Progress bars */}
+              {/* Progress bars for the creator's stories playlist */}
               <div className="story-progress-row">
-                {stories.map((st, i) => (
+                {activePlaylist.map((st, i) => (
                   <div key={st.id} className="story-progress-track">
                     <div
                       className="story-progress-fill"
@@ -193,8 +283,8 @@ export function HomeStories() {
                           i === activeStoryIndex
                             ? `${progress}%`
                             : i < activeStoryIndex
-                            ? '100%'
-                            : '0%',
+                              ? '100%'
+                              : '0%',
                       }}
                     />
                   </div>
@@ -212,6 +302,25 @@ export function HomeStories() {
                 </div>
 
                 <div className="story-header-actions">
+                  {/* Sound Toggle for Video */}
+                  {isVideo && (
+                    <button
+                      type="button"
+                      className="story-close-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const nextMuted = !isMuted;
+                        setIsMuted(nextMuted);
+                        if (videoRef.current) {
+                          videoRef.current.muted = nextMuted;
+                        }
+                      }}
+                      title={isMuted ? 'Unmute' : 'Mute'}
+                    >
+                      {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
+                    </button>
+                  )}
+
                   {currentViewStory.author.username === currentUser.username && (
                     <>
                       <span className="story-badge-user">
@@ -227,6 +336,7 @@ export function HomeStories() {
                           if (window.confirm('Delete this story?')) {
                             await deleteStoryApi(currentViewStory.id);
                             setActiveStoryIndex(null);
+                            setActivePlaylist([]);
                             loadStories();
                           }
                         }}
@@ -238,7 +348,10 @@ export function HomeStories() {
                   <button
                     type="button"
                     className="story-close-btn"
-                    onClick={() => setActiveStoryIndex(null)}
+                    onClick={() => {
+                      setActiveStoryIndex(null);
+                      setActivePlaylist([]);
+                    }}
                     aria-label="Close story"
                   >
                     <X size={20} />
@@ -248,18 +361,25 @@ export function HomeStories() {
 
               {/* Media Content */}
               <div className="story-media-container">
-                {currentViewStory.media_type === 'video' ? (
+                {isVideo ? (
                   <video
-                    src={currentViewStory.media_url}
+                    ref={videoRef}
+                    src={resolvedMedia}
                     autoPlay
-                    loop
-                    muted
                     playsInline
+                    muted={isMuted}
                     className="story-media"
+                    onTimeUpdate={() => {
+                      if (videoRef.current && videoRef.current.duration) {
+                        const pct = (videoRef.current.currentTime / videoRef.current.duration) * 100;
+                        setProgress(pct);
+                      }
+                    }}
+                    onEnded={handleNextStory}
                   />
                 ) : (
                   <img
-                    src={currentViewStory.media_url}
+                    src={resolvedMedia}
                     alt={currentViewStory.caption || 'Story content'}
                     className="story-media"
                   />

@@ -12,6 +12,7 @@ export type Post = {
   profiles: Profile;
   like_count?: number;
   comment_count?: number;
+  shares?: number;
   liked?: boolean;
   saved?: boolean;
   location?: string;

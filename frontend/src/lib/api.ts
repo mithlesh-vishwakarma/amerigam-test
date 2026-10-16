@@ -281,6 +281,19 @@ export async function incrementPostViewsApi(postId: string): Promise<{ views: nu
 }
 
 /**
+ * Register a share on a post or reel - triggers on every click
+ */
+export async function incrementPostShareApi(postId: string): Promise<{ shares: number }> {
+  try {
+    const res = await fetch(`${API_BASE}/posts/${postId}/share`, { method: 'POST' });
+    if (!res.ok) return { shares: 0 };
+    return res.json();
+  } catch {
+    return { shares: 0 };
+  }
+}
+
+/**
  * Fetch comments for a post
  */
 export async function fetchPostCommentsApi(postId: string): Promise<any[]> {

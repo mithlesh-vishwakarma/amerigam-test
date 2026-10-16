@@ -21,7 +21,9 @@ import {
   togglePostLikeApi,
   togglePostSaveApi,
   incrementPostViewsApi,
+  incrementPostShareApi,
   toggleFollowApi,
+  resolveMediaUrl,
 } from '@/lib/api';
 import { useTopLoader } from './top-loader';
 import { FloatingPillNav } from './floating-pill-nav';
@@ -58,7 +60,7 @@ export function ReelFeed() {
               id: p.id,
               title: p.title,
               description: p.description,
-              video_url:
+              video_url: resolveMediaUrl(
                 p.media_urls.find(
                   (m) =>
                     m.endsWith('.mp4') ||
@@ -67,11 +69,13 @@ export function ReelFeed() {
                     m.includes('video')
                 ) ||
                 p.media_urls[0] ||
-                '/media/reel-1.mp4',
-              poster_url:
+                '/media/reel-1.mp4'
+              ),
+              poster_url: resolveMediaUrl(
                 p.poster_url ||
                 p.media_urls[0] ||
-                'https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?auto=format&fit=crop&w=800&q=80',
+                'https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?auto=format&fit=crop&w=800&q=80'
+              ),
               creator: {
                 id: p.profiles?.id || p.author_id,
                 name: p.profiles?.display_name || 'Creator',
@@ -84,7 +88,7 @@ export function ReelFeed() {
               },
               likes: p.like_count ?? 0,
               comments: p.comment_count ?? 0,
-              shares: 24,
+              shares: p.shares ?? 0,
               views: p.views ?? 0,
               duration: p.duration || '0:30',
             }));
@@ -124,7 +128,7 @@ export function ReelFeed() {
             id: p.id,
             title: p.title,
             description: p.description,
-            video_url:
+            video_url: resolveMediaUrl(
               p.media_urls.find(
                 (m) =>
                   m.endsWith('.mp4') ||
@@ -133,11 +137,13 @@ export function ReelFeed() {
                   m.includes('video')
               ) ||
               p.media_urls[0] ||
-              '/media/reel-1.mp4',
-            poster_url:
+              '/media/reel-1.mp4'
+            ),
+            poster_url: resolveMediaUrl(
               p.poster_url ||
               p.media_urls[0] ||
-              'https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?auto=format&fit=crop&w=800&q=80',
+              'https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?auto=format&fit=crop&w=800&q=80'
+            ),
             creator: {
               id: p.profiles?.id || p.author_id,
               name: p.profiles?.display_name || 'Creator',
@@ -150,7 +156,7 @@ export function ReelFeed() {
             },
             likes: p.like_count ?? 0,
             comments: p.comment_count ?? 0,
-            shares: 24,
+            shares: p.shares ?? 0,
             views: p.views ?? 0,
             duration: p.duration || '0:30',
           }));
@@ -281,7 +287,16 @@ export function ReelFeed() {
     }));
 
     try {
-      await togglePostLikeApi(currentReel.id, user.id);
+      const res = await togglePostLikeApi(currentReel.id, user.id);
+      if (res && typeof res.like_count === 'number') {
+        setLikes((prev) => ({
+          ...prev,
+          [currentReel.id]: {
+            liked: res.liked,
+            count: res.like_count,
+          },
+        }));
+      }
     } catch (err) {
       console.warn('Backend like error:', err);
     }
@@ -323,7 +338,13 @@ export function ReelFeed() {
     } catch {}
   };
 
-  const handleShare = () => {
+  const handleShare = async () => {
+    if (!currentReel) return;
+    // Increment share count immediately on every click
+    setReels((prev) =>
+      prev.map((r, i) => (i === currentIndex ? { ...r, shares: (r.shares || 0) + 1 } : r))
+    );
+
     if (typeof navigator !== 'undefined' && navigator.share) {
       navigator.share({ title: currentReel.title, url: window.location.href }).catch(() => {});
     } else {
@@ -331,6 +352,15 @@ export function ReelFeed() {
       setNotice('Reel link copied!');
       setTimeout(() => setNotice(null), 2500);
     }
+
+    try {
+      const res = await incrementPostShareApi(currentReel.id);
+      if (res && typeof res.shares === 'number') {
+        setReels((prev) =>
+          prev.map((r, i) => (i === currentIndex ? { ...r, shares: res.shares } : r))
+        );
+      }
+    } catch {}
   };
 
   if (loading) {

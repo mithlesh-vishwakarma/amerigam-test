@@ -30,7 +30,7 @@ import {
   AUTH_CHANGED_EVENT,
   UserProfile,
 } from '@/lib/user-profiles';
-import { fetchProfiles, toggleFollowApi } from '@/lib/api';
+import { fetchProfiles, toggleFollowApi, fetchCommunities, API_BASE } from '@/lib/api';
 
 const communityCircles = [
   {
@@ -477,20 +477,24 @@ export function AppShell({
 
 function RightRail() {
   const [expanded, setExpanded] = useState(false);
-  const [joinedCommunities, setJoinedCommunities] = useState<Record<string, boolean>>({
-    'comm-1': true,
-  });
   const [followedFriends, setFollowedFriends] = useState<Record<string, boolean>>({});
   const [friendsList, setFriendsList] = useState<any[]>([]);
+  const [dbCommunities, setDbCommunities] = useState<any[]>([]);
   const [user, setUser] = useState<UserProfile>(getCurrentUser());
   const { triggerPulse } = useTopLoader();
 
-  useEffect(() => {
-    fetchProfiles().then((profs) => {
+  const loadData = async (activeUserId: string) => {
+    try {
+      const [profs, comms, followingRes] = await Promise.all([
+        fetchProfiles(),
+        fetchCommunities(),
+        fetch(`${API_BASE}/profiles/${activeUserId}/following`).then((r) => (r.ok ? r.json() : { following: [] })),
+      ]);
+
       if (profs && profs.length > 0) {
         setFriendsList(
           profs
-            .filter((p) => p.id !== user.id)
+            .filter((p) => p.id !== activeUserId)
             .map((p) => ({
               id: p.id,
               name: p.display_name,
@@ -500,30 +504,47 @@ function RightRail() {
             }))
         );
       }
-    });
+
+      if (comms && comms.length > 0) {
+        setDbCommunities(comms);
+      }
+
+      if (followingRes && Array.isArray(followingRes.following)) {
+        const map: Record<string, boolean> = {};
+        followingRes.following.forEach((id: string) => {
+          map[id] = true;
+        });
+        setFollowedFriends(map);
+      }
+    } catch (err) {
+      console.warn('RightRail loadData error:', err);
+    }
+  };
+
+  useEffect(() => {
+    loadData(user.id);
   }, [user.id]);
 
   useEffect(() => {
     setUser(getCurrentUser());
-    const handleAuth = () => setUser(getCurrentUser());
+    const handleAuth = () => {
+      const nextUser = getCurrentUser();
+      setUser(nextUser);
+      loadData(nextUser.id);
+    };
     window.addEventListener(AUTH_CHANGED_EVENT, handleAuth);
     return () => window.removeEventListener(AUTH_CHANGED_EVENT, handleAuth);
   }, []);
 
-  const toggleCommunity = (id: string, e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setJoinedCommunities((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
-
   const toggleFollow = async (id: string) => {
-    setFollowedFriends((prev) => ({ ...prev, [id]: !prev[id] }));
+    const nextState = !followedFriends[id];
+    setFollowedFriends((prev) => ({ ...prev, [id]: nextState }));
     try {
       await toggleFollowApi(user.id, id);
     } catch {}
   };
 
-  const userCommunities = getJoinedCommunitiesForUser(user);
+  const userCommunities = dbCommunities.length > 0 ? dbCommunities : getJoinedCommunitiesForUser(user);
 
   return (
     <aside className="right-rail" aria-label="Sidebar information">

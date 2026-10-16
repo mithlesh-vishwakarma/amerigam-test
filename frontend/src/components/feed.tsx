@@ -11,7 +11,7 @@ import {
 import { FeedFilters } from './feed-filters';
 import { HomeStories } from './home-stories';
 import { CommentsModal } from './comments-modal';
-import { fetchPosts, togglePostLikeApi, togglePostSaveApi, incrementPostViewsApi } from '@/lib/api';
+import { fetchPosts, togglePostLikeApi, togglePostSaveApi, incrementPostViewsApi, incrementPostShareApi, resolveMediaUrl } from '@/lib/api';
 import type { Post } from '@/lib/types';
 
 export function Feed({ variant = 'home' }: { variant?: 'home' | 'feed' }) {
@@ -24,6 +24,7 @@ export function Feed({ variant = 'home' }: { variant?: 'home' | 'feed' }) {
   const [selectedCommunityFilter, setSelectedCommunityFilter] = useState<string>('all');
   const [primaryLiked, setPrimaryLiked] = useState(false);
   const [primaryLikesCount, setPrimaryLikesCount] = useState(0);
+  const [primarySharesCount, setPrimarySharesCount] = useState(0);
   const [primarySaved, setPrimarySaved] = useState(false);
   const [primaryCommentsCount, setPrimaryCommentsCount] = useState(0);
   const [showCommentsModal, setShowCommentsModal] = useState(false);
@@ -79,10 +80,11 @@ export function Feed({ variant = 'home' }: { variant?: 'home' | 'feed' }) {
     if (primaryPost) {
       setPrimaryLiked(Boolean(primaryPost.liked));
       setPrimaryLikesCount(primaryPost.like_count ?? 0);
+      setPrimarySharesCount(primaryPost.shares ?? 0);
       setPrimarySaved(Boolean(primaryPost.saved));
       setPrimaryCommentsCount(primaryPost.comment_count ?? 0);
     }
-  }, [primaryPost?.id, primaryPost?.liked, primaryPost?.like_count, primaryPost?.saved, primaryPost?.comment_count]);
+  }, [primaryPost?.id, primaryPost?.liked, primaryPost?.like_count, primaryPost?.shares, primaryPost?.saved, primaryPost?.comment_count]);
 
   // Derive Reels strictly from database posts
   const reels: ReelItem[] = useMemo(() => {
@@ -263,7 +265,7 @@ export function Feed({ variant = 'home' }: { variant?: 'home' | 'feed' }) {
                 <div className="home-card-views">
                   <Play size={10} fill="currentColor" strokeWidth={0} />
                   <span>
-                    {((reel.views || 0) / 1000).toFixed(1)}K · {reel.duration || '0:30'}
+                    {((reel.views || 0) / 1000).toFixed(1)}K · {reel.duration}
                   </span>
                 </div>
               </div>
@@ -345,7 +347,7 @@ export function Feed({ variant = 'home' }: { variant?: 'home' | 'feed' }) {
                   <div className="home-card-views">
                     <Play size={10} fill="currentColor" strokeWidth={0} />
                     <span>
-                      {((primaryPost.views || 18400) / 1000).toFixed(1)}K · 0:45
+                      {((primaryPost.views || 18400) / 1000).toFixed(1)}K
                     </span>
                   </div>
                 </div>
@@ -380,8 +382,12 @@ export function Feed({ variant = 'home' }: { variant?: 'home' | 'feed' }) {
                   setPrimaryLiked(newLiked);
                   setPrimaryLikesCount(newCount);
                   try {
-                    await togglePostLikeApi(primaryPost.id, currentUserProfile.id);
-                  } catch {}
+                    const res = await togglePostLikeApi(primaryPost.id, currentUserProfile.id);
+                    if (res && typeof res.like_count === 'number') {
+                      setPrimaryLikesCount(res.like_count);
+                      setPrimaryLiked(res.liked);
+                    }
+                  } catch { }
                 }}
                 style={{
                   background: 'none',
@@ -423,10 +429,21 @@ export function Feed({ variant = 'home' }: { variant?: 'home' | 'feed' }) {
 
               <button
                 type="button"
-                onClick={() => {
-                  navigator.clipboard?.writeText(window.location.origin + `/posts/${primaryPost.id}`);
-                  setNotice('Post link copied!');
-                  setTimeout(() => setNotice(''), 2000);
+                onClick={async () => {
+                  setPrimarySharesCount((prev) => prev + 1);
+                  if (typeof navigator !== 'undefined' && navigator.share) {
+                    navigator.share({ title: primaryPost.title, url: window.location.origin + `/posts/${primaryPost.id}` }).catch(() => { });
+                  } else {
+                    navigator.clipboard?.writeText(window.location.origin + `/posts/${primaryPost.id}`);
+                    setNotice('Post link copied!');
+                    setTimeout(() => setNotice(''), 2000);
+                  }
+                  try {
+                    const res = await incrementPostShareApi(primaryPost.id);
+                    if (res && typeof res.shares === 'number') {
+                      setPrimarySharesCount(res.shares);
+                    }
+                  } catch { }
                 }}
                 style={{
                   background: 'none',
@@ -435,9 +452,14 @@ export function Feed({ variant = 'home' }: { variant?: 'home' | 'feed' }) {
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
+                  gap: 6,
+                  fontWeight: 500,
+                  fontSize: '13px',
                 }}
+                title="Share this post"
               >
                 <Share2 size={18} />
+                <span>{primarySharesCount > 0 ? (primarySharesCount > 1000 ? `${(primarySharesCount / 1000).toFixed(1)}k` : primarySharesCount) : ''}</span>
               </button>
             </div>
 
@@ -454,7 +476,7 @@ export function Feed({ variant = 'home' }: { variant?: 'home' | 'feed' }) {
                   setTimeout(() => setNotice(''), 2000);
                   try {
                     await togglePostSaveApi(primaryPost.id, currentUserProfile.id);
-                  } catch {}
+                  } catch { }
                 }}
                 style={{
                   background: 'none',
@@ -492,7 +514,7 @@ export function Feed({ variant = 'home' }: { variant?: 'home' | 'feed' }) {
                   <div className="home-card-views">
                     <Play size={10} fill="currentColor" strokeWidth={0} />
                     <span>
-                      {((card.views || 0) / 1000).toFixed(1)}K · 0:30
+                      {((card.views || 0) / 1000).toFixed(1)}
                     </span>
                   </div>
                 </div>

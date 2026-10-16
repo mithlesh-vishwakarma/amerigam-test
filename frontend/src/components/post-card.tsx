@@ -17,12 +17,13 @@ import {
   Clapperboard,
 } from 'lucide-react';
 import { getCurrentUser } from '@/lib/user-profiles';
-import { togglePostLikeApi, togglePostSaveApi, incrementPostViewsApi } from '@/lib/api';
+import { togglePostLikeApi, togglePostSaveApi, incrementPostViewsApi, incrementPostShareApi, resolveMediaUrl } from '@/lib/api';
 import { CommentsModal } from './comments-modal';
 import type { Post } from '@/lib/types';
 
 export function MediaCard({ post }: { post: Post }) {
-  const image = post.media_urls?.[0];
+  const rawImage = post.media_urls?.[0];
+  const image = resolveMediaUrl(rawImage);
   return (
     <Link to={`/posts/${post.id}`} className="media-card">
       {image ? <img src={image} alt={post.title} /> : <div className="blog-cover" />}
@@ -40,6 +41,7 @@ export function MediaCard({ post }: { post: Post }) {
 export function PostCard({ post, expanded = false }: { post: Post; expanded?: boolean }) {
   const [liked, setLiked] = useState(!!post.liked);
   const [count, setCount] = useState(post.like_count || 0);
+  const [shareCount, setShareCount] = useState(post.shares || 0);
   const [commentsCount, setCommentsCount] = useState(post.comment_count || 0);
   const [menu, setMenu] = useState(false);
   const [notice, setNotice] = useState('');
@@ -56,9 +58,10 @@ export function PostCard({ post, expanded = false }: { post: Post; expanded?: bo
   useEffect(() => {
     setLiked(!!post.liked);
     setCount(post.like_count || 0);
+    setShareCount(post.shares || 0);
     setCommentsCount(post.comment_count || 0);
     setBookmarked(!!post.saved);
-  }, [post.id, post.liked, post.like_count, post.comment_count, post.saved]);
+  }, [post.id, post.liked, post.like_count, post.shares, post.comment_count, post.saved]);
 
   // Register view on view
   useEffect(() => {
@@ -74,7 +77,28 @@ export function PostCard({ post, expanded = false }: { post: Post; expanded?: bo
     setLiked(newLiked);
     setCount(newCount);
     try {
-      await togglePostLikeApi(post.id, user.id);
+      const res = await togglePostLikeApi(post.id, user.id);
+      if (res && typeof res.like_count === 'number') {
+        setCount(res.like_count);
+        setLiked(res.liked);
+      }
+    } catch {}
+  };
+
+  const handleShare = async () => {
+    setShareCount((prev) => prev + 1);
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      navigator.share({ title: post.title, url: window.location.origin + `/posts/${post.id}` }).catch(() => {});
+    } else {
+      navigator.clipboard?.writeText(window.location.origin + `/posts/${post.id}`);
+      setNotice('Post link copied to clipboard!');
+      setTimeout(() => setNotice(''), 2000);
+    }
+    try {
+      const res = await incrementPostShareApi(post.id);
+      if (res && typeof res.shares === 'number') {
+        setShareCount(res.shares);
+      }
     } catch {}
   };
 
@@ -180,8 +204,8 @@ export function PostCard({ post, expanded = false }: { post: Post; expanded?: bo
         <div className="home-inline-reel" onClick={toggleVideo}>
           <video
             ref={videoRef}
-            src={videoUrl}
-            poster={imageUrl}
+            src={resolveMediaUrl(videoUrl)}
+            poster={resolveMediaUrl(imageUrl)}
             loop
             playsInline
             muted={isMuted}
@@ -213,7 +237,7 @@ export function PostCard({ post, expanded = false }: { post: Post; expanded?: bo
       ) : media[0] ? (
         <div className="media-carousel">
           <Link to={`/posts/${post.id}`}>
-            <img className="post-media" src={media[slide]} alt={post.title} />
+            <img className="post-media" src={resolveMediaUrl(media[slide])} alt={post.title} />
           </Link>
           {media.length > 1 && (
             <>
@@ -265,14 +289,12 @@ export function PostCard({ post, expanded = false }: { post: Post; expanded?: bo
           </button>
           <button
             type="button"
-            onClick={() => {
-              navigator.clipboard?.writeText(window.location.origin + `/posts/${post.id}`);
-              setNotice('Post link copied!');
-              setTimeout(() => setNotice(''), 2000);
-            }}
+            onClick={handleShare}
             aria-label="Share"
+            title="Share this post"
           >
             <Share2 size={18} />
+            <span>{shareCount > 0 ? (shareCount > 1000 ? `${(shareCount / 1000).toFixed(1)}k` : shareCount) : ''}</span>
           </button>
           <button
             type="button"

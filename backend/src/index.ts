@@ -23,6 +23,7 @@ import {
   togglePostLike,
   togglePostSave,
   incrementPostViews,
+  incrementPostShares,
   getPostComments,
   addPostComment,
   getStories,
@@ -63,6 +64,12 @@ app.use(
     },
   })
 );
+
+// Fallback for media uploaded to remote Render production instance
+app.use('/uploads/:filename', (req, res) => {
+  const remoteUrl = `https://amerigam-test.onrender.com/uploads/${req.params.filename}`;
+  return res.redirect(302, remoteUrl);
+});
 
 // ============================================================================
 // SYSTEM & DOCS
@@ -525,6 +532,15 @@ app.post('/api/posts/:id/view', async (req, res) => {
     res.json(result);
   } catch (error: any) {
     res.status(500).json({ error: error.message || 'Failed to register view' });
+  }
+});
+
+app.post('/api/posts/:id/share', async (req, res) => {
+  try {
+    const result = await incrementPostShares(req.params.id);
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || 'Failed to register share' });
   }
 });
 

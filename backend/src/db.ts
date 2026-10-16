@@ -74,6 +74,7 @@ export interface PostRecord {
   is_ai_labeled?: boolean;
   hide_stats?: boolean;
   views: number;
+  shares?: number;
   like_count: number;
   comment_count: number;
   created_at: string;
@@ -318,8 +319,14 @@ export async function getPosts(filters?: PostFilterParams): Promise<any[]> {
 
     posts = posts.map((p) => ({
       ...p,
+      shares: p.shares ?? localPostShares.get(p.id) ?? 0,
       liked: likedSet.has(p.id),
       saved: savedSet.has(p.id),
+    }));
+  } else {
+    posts = posts.map((p) => ({
+      ...p,
+      shares: p.shares ?? localPostShares.get(p.id) ?? 0,
     }));
   }
 
@@ -353,6 +360,7 @@ export async function getPostById(id: string, viewerId?: string): Promise<any | 
 
   return {
     ...post,
+    shares: post.shares ?? localPostShares.get(id) ?? 0,
     liked,
     saved,
   };
@@ -416,19 +424,24 @@ export async function togglePostLike(postId: string, profileId: string): Promise
     .maybeSingle();
 
   if (existing) {
+    // Delete existing like
     await supabase.from('post_likes').delete().eq('post_id', postId).eq('profile_id', profileId);
-    // If triggers aren't enabled, update count manually as fallback
-    const post = await getPostById(postId);
-    const newCount = Math.max(0, (post?.like_count || 1) - 1);
-    await supabase.from('posts').update({ like_count: newCount }).eq('id', postId);
-    return { liked: false, like_count: newCount };
   } else {
-    await supabase.from('post_likes').insert({ post_id: postId, profile_id: profileId });
-    const post = await getPostById(postId);
-    const newCount = (post?.like_count || 0) + 1;
-    await supabase.from('posts').update({ like_count: newCount }).eq('id', postId);
-    return { liked: true, like_count: newCount };
+    // Idempotent upsert so each user can like exactly once
+    await supabase
+      .from('post_likes')
+      .upsert({ post_id: postId, profile_id: profileId }, { onConflict: 'post_id,profile_id' });
   }
+
+  // Calculate EXACT count directly from post_likes table to prevent drift
+  const { count } = await supabase
+    .from('post_likes')
+    .select('*', { count: 'exact', head: true })
+    .eq('post_id', postId);
+
+  const exactCount = count ?? 0;
+  await supabase.from('posts').update({ like_count: exactCount }).eq('id', postId);
+  return { liked: !existing, like_count: exactCount };
 }
 
 export async function togglePostSave(postId: string, profileId: string): Promise<{ saved: boolean }> {
@@ -453,6 +466,24 @@ export async function incrementPostViews(postId: string): Promise<{ views: numbe
   const newViews = (post?.views || 0) + 1;
   await supabase.from('posts').update({ views: newViews }).eq('id', postId);
   return { views: newViews };
+}
+
+// In-memory fallback tracker for shares to guarantee reliable increment on every click
+const localPostShares = new Map<string, number>();
+
+export async function incrementPostShares(postId: string): Promise<{ shares: number }> {
+  const post = await getPostById(postId);
+  const currentShares = (post?.shares || localPostShares.get(postId) || 0) + 1;
+  localPostShares.set(postId, currentShares);
+
+  // Attempt persisting to Supabase posts table
+  try {
+    await supabase.from('posts').update({ shares: currentShares }).eq('id', postId);
+  } catch (err: any) {
+    console.warn('Shares DB persist notice (safe fallback used):', err?.message);
+  }
+
+  return { shares: currentShares };
 }
 
 // ============================================================================
@@ -498,10 +529,14 @@ export async function addPostComment(postId: string, authorId: string, content: 
     throw new Error(error.message);
   }
 
-  // Increment comment_count on post
-  const post = await getPostById(postId);
-  const newCommentCount = (post?.comment_count || 0) + 1;
-  await supabase.from('posts').update({ comment_count: newCommentCount }).eq('id', postId);
+  // Exact comment count from post_comments table
+  const { count } = await supabase
+    .from('post_comments')
+    .select('*', { count: 'exact', head: true })
+    .eq('post_id', postId);
+
+  const exactCommentCount = count ?? 1;
+  await supabase.from('posts').update({ comment_count: exactCommentCount }).eq('id', postId);
 
   return data;
 }
