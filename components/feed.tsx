@@ -1,7 +1,0 @@
-'use client';
-import { useEffect, useState } from 'react';
-import { demoPosts } from '@/lib/demo-posts';
-import type { Post } from '@/lib/types';
-import { MediaCard, PostCard } from './post-card';
-import { HomeStories } from './home-stories'; import { FeedFilters } from './feed-filters';
-export function Feed({ variant = 'home' }: { variant?: 'home' | 'feed' }) { const [posts, setPosts] = useState<Post[]>(demoPosts); const [error, setError] = useState(''); const [filter,setFilter]=useState('For You'); useEffect(() => { fetch('/api/posts').then(r => r.ok ? r.json() : Promise.reject()).then(d => d.items?.length && setPosts(d.items)).catch(() => setError('Connect Supabase to load your live posts. Demo content is shown below.')); }, []); const visiblePosts = filter === 'Communities' ? posts.filter((_,i)=>i%2===0) : filter === 'Network' ? posts.filter((_,i)=>i%2===1) : posts; if (variant === 'feed') return <><FeedFilters onChange={setFilter}/><p className="hint">{error}</p><section className="feed-list">{visiblePosts.map(post => <PostCard post={post} expanded key={post.id}/>)}</section></>; return <><FeedFilters onChange={setFilter}/><HomeStories/><p className="hint">{error}</p><section className="home-grid">{visiblePosts.slice(2, 5).map(post => <MediaCard post={post} key={post.id}/>)}{visiblePosts[0] && <PostCard post={visiblePosts[0]} key={visiblePosts[0].id}/>} {visiblePosts[1] && <MediaCard post={visiblePosts[1]}/>}</section></>; }

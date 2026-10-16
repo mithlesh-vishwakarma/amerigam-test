@@ -1,37 +1,50 @@
-# Amerigam — Next.js + Supabase assessment MVP
+# Amerigam — React (Vite) + Node.js (Express)
 
-A full-stack Next.js and React implementation of the supplied Amerigam reference screens. The frontend uses React App Router pages; Node.js route handlers expose the post and engagement APIs; Supabase supplies authentication, PostgreSQL persistence, and media storage.
+A clean, full-stack separation of the Amerigam platform featuring an immersive vertical Reel video player, interactive floating navigation pill, 3-column independent scrolling desktop layout, and RESTful API backend.
 
-## Project structure
+## Project Structure
 
 ```
-app/                       # React pages and Node.js API route handlers
-  api/posts/               # Post creation, list, and like endpoints
-  home, feed, search.../   # Connected Amerigam navigation pages
-components/                # Reusable navigation, feed, media and post components
-lib/supabase/              # Browser and server Supabase clients
-supabase/migrations/       # Version-controlled PostgreSQL, RLS and Storage setup
-public/                    # Static assets (add brand-owned assets here)
-package.json               # Next.js developer commands
+amerigam-test/
+├── frontend/                  # React 19 + Vite 8 Client
+│   ├── public/                # Static assets (Amerigam logo, 4 local reel MP4s)
+│   ├── src/
+│   │   ├── components/        # AppShell, ReelFeed, FloatingPillNav, PostCard, etc.
+│   │   ├── pages/             # HomePage, FeedPage, SearchPage, CompetitionsPage, etc.
+│   │   ├── lib/               # Types, demo posts, and Supabase client
+│   │   ├── styles/            # globals.css, home-ui.css
+│   │   ├── App.tsx            # React Router 7 setup
+│   │   └── main.tsx           # Vite entry point
+│   ├── index.html
+│   ├── vite.config.ts         # Proxy: /api -> http://localhost:5000
+│   ├── tsconfig.json
+│   └── package.json
+│
+├── backend/                   # Node.js + Express REST API
+│   ├── src/
+│   │   └── index.ts           # Express server (/api/posts, /api/posts/:id/like)
+│   ├── tsconfig.json
+│   └── package.json
+│
+├── supabase/                  # PostgreSQL migrations and schema
+└── package.json               # Monorepo root workspace scripts
 ```
 
-## Run
+## Running the Application
 
+### Option A: Run Both Frontend & Backend Concurrently
+From the root directory:
 ```powershell
-npm install
-Copy-Item .env.example .env.local
 npm run dev
 ```
+- **Frontend**: `http://localhost:3000`
+- **Backend API**: `http://localhost:5000`
 
-Apply `supabase/migrations/20261016_amerigam.sql` in the Supabase SQL editor (or with the Supabase CLI), then populate `.env.local` with the project URL and anon key. Open `http://localhost:3000`.
+### Option B: Run Individually
+```powershell
+# Run backend only (port 5000)
+npm run dev:backend
 
-## Implemented
-
-- Reference-inspired Home, Feed, Explore, Competitions, Create, Messages and Notification interfaces, connected with Next links.
-- Post, Reel and Blog creation screen with previews, type-specific validation, Supabase Storage upload, and Node API publishing.
-- Supabase PostgreSQL tables for profiles, posts, likes and comments, with RLS policies and database-level unique likes.
-- Node-runtime route handlers for live post listing, creation, and likes.
-
-## Notes
-
-The supplied screenshots remain the visual source of truth. Demo content displays until Supabase contains live posts, so the UI remains reviewable before credentials are configured. Messages, notifications and competitions currently have reference-quality UI and realistic empty/demo states; their database models and live APIs are intentionally not claimed as implemented.
+# Run frontend only (port 3000)
+npm run dev:frontend
+```
