@@ -541,7 +541,7 @@ function RightRail() {
     setFollowedFriends((prev) => ({ ...prev, [id]: nextState }));
     try {
       await toggleFollowApi(user.id, id);
-    } catch {}
+    } catch { }
   };
 
   const userCommunities = dbCommunities.length > 0 ? dbCommunities : getJoinedCommunitiesForUser(user);
