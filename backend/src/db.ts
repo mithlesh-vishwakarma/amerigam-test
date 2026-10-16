@@ -4,10 +4,12 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 dotenv.config();
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://urliixbjasydzyaklrzm.supabase.co';
-const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || '';
+const rawKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+const SUPABASE_KEY = rawKey && rawKey.trim() !== '' ? rawKey : 'placeholder-supabase-key';
 
-if (!SUPABASE_KEY) {
-  console.warn('⚠️ SUPABASE_SERVICE_ROLE_KEY / SUPABASE_ANON_KEY not found in .env');
+if (!rawKey || rawKey.trim() === '') {
+  console.warn('⚠️ SUPABASE_SERVICE_ROLE_KEY / SUPABASE_ANON_KEY not configured in backend/.env');
+  console.warn('👉 Please create a .env file in backend/ with your Supabase credentials (see backend/.env.example)');
 }
 
 export const supabase: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY, {
@@ -17,7 +19,7 @@ export const supabase: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY,
   },
 });
 
-console.log('⚡ Connected directly to live Supabase database at:', SUPABASE_URL);
+console.log('⚡ Connected to Supabase endpoint at:', SUPABASE_URL);
 
 // ============================================================================
 // TYPE DEFINITIONS
