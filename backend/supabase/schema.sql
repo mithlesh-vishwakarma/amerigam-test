@@ -1,5 +1,5 @@
 -- ============================================================================
--- AMERIGAM DATABASE SCHEMA & RELATIONS (SUPABASE POSTGRESQL)
+-- AMERIGAM COMPLETE DATABASE SCHEMA & RELATIONS (SUPABASE POSTGRESQL)
 -- Copy and paste this complete script into Supabase SQL Editor and click 'Run'.
 -- ============================================================================
 
@@ -8,6 +8,11 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- Clean existing tables if needed (safe re-run)
+DROP TRIGGER IF EXISTS trg_post_like_count ON post_likes CASCADE;
+DROP TRIGGER IF EXISTS trg_post_comment_count ON post_comments CASCADE;
+DROP FUNCTION IF EXISTS update_post_like_count CASCADE;
+DROP FUNCTION IF EXISTS update_post_comment_count CASCADE;
+
 DROP TABLE IF EXISTS post_comments CASCADE;
 DROP TABLE IF EXISTS post_likes CASCADE;
 DROP TABLE IF EXISTS post_saves CASCADE;
@@ -65,7 +70,7 @@ CREATE TABLE communities (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- COMMUNITY MEMBERSHIPS
+-- COMMUNITY MEMBERSHIPS (Many-to-Many join table)
 CREATE TABLE community_members (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   community_id TEXT NOT NULL REFERENCES communities(id) ON DELETE CASCADE,
@@ -111,7 +116,7 @@ CREATE TABLE stories (
   expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '24 hours')
 );
 
--- POST LIKES
+-- POST LIKES (User Likes)
 CREATE TABLE post_likes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   post_id TEXT NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
@@ -129,7 +134,7 @@ CREATE TABLE post_saves (
   CONSTRAINT unique_post_save UNIQUE (post_id, profile_id)
 );
 
--- POST COMMENTS
+-- POST COMMENTS (Discussion threads)
 CREATE TABLE post_comments (
   id TEXT PRIMARY KEY DEFAULT ('comment-' || extract(epoch from now())::text),
   post_id TEXT NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
@@ -151,6 +156,8 @@ CREATE INDEX idx_follows_follower ON follows(follower_id);
 CREATE INDEX idx_follows_following ON follows(following_id);
 CREATE INDEX idx_community_members_profile ON community_members(profile_id);
 CREATE INDEX idx_post_saves_profile ON post_saves(profile_id);
+CREATE INDEX idx_post_likes_post ON post_likes(post_id);
+CREATE INDEX idx_post_comments_post ON post_comments(post_id);
 
 -- GIN Index for fast full-text search across titles and descriptions
 CREATE INDEX idx_posts_search ON posts USING GIN (
@@ -158,7 +165,42 @@ CREATE INDEX idx_posts_search ON posts USING GIN (
 );
 
 -- ============================================================================
--- 4. ROW LEVEL SECURITY (RLS) POLICIES
+-- 4. AUTOMATIC COUNTER & TIMESTAMP TRIGGERS
+-- ============================================================================
+CREATE OR REPLACE FUNCTION update_post_like_count()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    UPDATE posts SET like_count = like_count + 1 WHERE id = NEW.post_id;
+  ELSIF TG_OP = 'DELETE' THEN
+    UPDATE posts SET like_count = GREATEST(0, like_count - 1) WHERE id = OLD.post_id;
+  END IF;
+  RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_post_like_count
+AFTER INSERT OR DELETE ON post_likes
+FOR EACH ROW EXECUTE FUNCTION update_post_like_count();
+
+CREATE OR REPLACE FUNCTION update_post_comment_count()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    UPDATE posts SET comment_count = comment_count + 1 WHERE id = NEW.post_id;
+  ELSIF TG_OP = 'DELETE' THEN
+    UPDATE posts SET comment_count = GREATEST(0, comment_count - 1) WHERE id = OLD.post_id;
+  END IF;
+  RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_post_comment_count
+AFTER INSERT OR DELETE ON post_comments
+FOR EACH ROW EXECUTE FUNCTION update_post_comment_count();
+
+-- ============================================================================
+-- 5. ROW LEVEL SECURITY (RLS) POLICIES
 -- ============================================================================
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE follows ENABLE ROW LEVEL SECURITY;
@@ -181,7 +223,7 @@ CREATE POLICY "Public likes are viewable by everyone" ON post_likes FOR SELECT U
 CREATE POLICY "Public saves are viewable by everyone" ON post_saves FOR SELECT USING (true);
 CREATE POLICY "Public comments are viewable by everyone" ON post_comments FOR SELECT USING (true);
 
--- Allow full mutations for service role and anon for demo / development
+-- Allow full mutations for service role and client app
 CREATE POLICY "Allow all modifications on profiles" ON profiles FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all modifications on follows" ON follows FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all modifications on communities" ON communities FOR ALL USING (true) WITH CHECK (true);
@@ -193,10 +235,27 @@ CREATE POLICY "Allow all modifications on post_saves" ON post_saves FOR ALL USIN
 CREATE POLICY "Allow all modifications on post_comments" ON post_comments FOR ALL USING (true) WITH CHECK (true);
 
 -- ============================================================================
--- 5. INITIAL SEED DATA
+-- 6. STORAGE BUCKET CONFIGURATION (For Images, Reels, and Video Uploads)
+-- ============================================================================
+INSERT INTO storage.buckets (id, name, public) 
+VALUES ('media', 'media', true)
+ON CONFLICT (id) DO UPDATE SET public = true;
+
+DROP POLICY IF EXISTS "Public Media Access" ON storage.objects;
+DROP POLICY IF EXISTS "Allow Uploads" ON storage.objects;
+DROP POLICY IF EXISTS "Allow Updates" ON storage.objects;
+DROP POLICY IF EXISTS "Allow Deletes" ON storage.objects;
+
+CREATE POLICY "Public Media Access" ON storage.objects FOR SELECT USING (bucket_id = 'media');
+CREATE POLICY "Allow Uploads" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'media');
+CREATE POLICY "Allow Updates" ON storage.objects FOR UPDATE USING (bucket_id = 'media');
+CREATE POLICY "Allow Deletes" ON storage.objects FOR DELETE USING (bucket_id = 'media');
+
+-- ============================================================================
+-- 7. INITIAL SEED DATA
 -- ============================================================================
 
--- Insert the 4 User Profiles
+-- Insert the 4 Distinct User Profiles
 INSERT INTO profiles (id, username, display_name, avatar_url, role, bio, rank, points, rating, skills, theme_color)
 VALUES
   (
@@ -252,7 +311,7 @@ VALUES
     '#f59e0b'
   );
 
--- Insert Initial Follow Relationships (Alex follows Aarav & Elena; Aarav follows Elena; etc.)
+-- Insert Initial Follow Graph (Social Following network)
 INSERT INTO follows (follower_id, following_id)
 VALUES
   ('user-dev', 'user-editor'),
@@ -466,7 +525,7 @@ VALUES
     45
   );
 
--- Insert Stories for Creators
+-- Insert Stories for Creators (Ephemeral 24h stories)
 INSERT INTO stories (id, author_id, media_url, media_type, caption)
 VALUES
   (
@@ -498,9 +557,20 @@ VALUES
     'Creator economy benchmark metrics review.'
   );
 
+-- Insert Initial Comments
+INSERT INTO post_comments (id, post_id, author_id, content, created_at)
+VALUES
+  ('comment-seed-1', 'post-editor-1', 'user-dev', 'The shadow rolloff on this Kodak emulation is sublime! Are you doing this in ACES or DWG?', NOW() - INTERVAL '2 hours'),
+  ('comment-seed-2', 'post-editor-1', 'user-writer', 'The texture feels tactile and organic. Inspiring work Aarav!', NOW() - INTERVAL '1 hour'),
+  ('comment-seed-3', 'post-dev-1', 'user-analyst', 'WebGL canvas layer integration benchmarks look really promising. What is the memory footprint on mobile?', NOW() - INTERVAL '3 hours'),
+  ('comment-seed-4', 'post-writer-1', 'user-editor', 'The rhythmic cadence in your opening paragraph sets the bar high.', NOW() - INTERVAL '4 hours');
+
 -- ============================================================================
--- 6. REALTIME REPLICATION (Optional for live updates)
+-- 8. REALTIME REPLICATION (For Live Socket Subscriptions)
 -- ============================================================================
 ALTER PUBLICATION supabase_realtime ADD TABLE posts;
 ALTER PUBLICATION supabase_realtime ADD TABLE stories;
 ALTER PUBLICATION supabase_realtime ADD TABLE profiles;
+ALTER PUBLICATION supabase_realtime ADD TABLE post_comments;
+ALTER PUBLICATION supabase_realtime ADD TABLE post_likes;
+ALTER PUBLICATION supabase_realtime ADD TABLE post_saves;

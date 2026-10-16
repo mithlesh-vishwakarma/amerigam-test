@@ -1,6 +1,22 @@
-import type { Post, StoryItem, UserProfile, CommunityProfile } from './types';
+// Render Backend / Vercel API Base
+export const BACKEND_URL =
+  import.meta.env.VITE_BACKEND_URL ||
+  (import.meta.env.PROD ? 'https://amerigam-test.onrender.com' : '');
 
-const API_BASE = '/api';
+export const API_BASE =
+  import.meta.env.VITE_API_BASE_URL ||
+  (BACKEND_URL ? `${BACKEND_URL}/api` : '/api');
+
+export function resolveMediaUrl(url: string | undefined | null): string {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
+    return url;
+  }
+  if (url.startsWith('/uploads')) {
+    return BACKEND_URL ? `${BACKEND_URL}${url}` : url;
+  }
+  return url;
+}
 
 /**
  * Upload an image or video file to backend
