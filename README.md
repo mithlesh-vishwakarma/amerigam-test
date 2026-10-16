@@ -1,22 +1,37 @@
-# Amerigam assessment MVP
+# Amerigam — Next.js + Supabase assessment MVP
 
-A local, full-stack implementation of the supplied Amerigam reference screens. It uses Node's built-in HTTP server and a versioned frontend, so it has no install-time dependency or external service prerequisite.
+A full-stack Next.js and React implementation of the supplied Amerigam reference screens. The frontend uses React App Router pages; Node.js route handlers expose the post and engagement APIs; Supabase supplies authentication, PostgreSQL persistence, and media storage.
+
+## Project structure
+
+```
+app/                       # React pages and Node.js API route handlers
+  api/posts/               # Post creation, list, and like endpoints
+  home, feed, search.../   # Connected Amerigam navigation pages
+components/                # Reusable navigation, feed, media and post components
+lib/supabase/              # Browser and server Supabase clients
+supabase/migrations/       # Version-controlled PostgreSQL, RLS and Storage setup
+public/                    # Static assets (add brand-owned assets here)
+package.json               # Next.js developer commands
+```
 
 ## Run
 
 ```powershell
-npm start
+npm install
+Copy-Item .env.example .env.local
+npm run dev
 ```
 
-Open `http://localhost:3000`. The seed login is `creator` / `demo123`. Use `npm test` for API integration checks.
+Apply `supabase/migrations/20261016_amerigam.sql` in the Supabase SQL editor (or with the Supabase CLI), then populate `.env.local` with the project URL and anon key. Open `http://localhost:3000`.
 
 ## Implemented
 
-- Reference-inspired desktop home/feed, creator panel, post detail, and responsive layouts.
-- Creation experience with Post, Reel, and Blog selectors, character limits, upload preview/replacement, validation, and publish feedback.
-- Local JSON persistence (`data/db.json` created at runtime), session authentication, protected create/upload/delete endpoints.
-- Persistent media uploads under `uploads/`, post fetching, search, likes, comments, ownership enforcement, and share/copy behavior.
+- Reference-inspired Home, Feed, Explore, Competitions, Create, Messages and Notification interfaces, connected with Next links.
+- Post, Reel and Blog creation screen with previews, type-specific validation, Supabase Storage upload, and Node API publishing.
+- Supabase PostgreSQL tables for profiles, posts, likes and comments, with RLS policies and database-level unique likes.
+- Node-runtime route handlers for live post listing, creation, and likes.
 
 ## Notes
 
-The initial repository did not contain an existing application, database, dependencies, assets, or environment configuration. The project therefore uses local persistence suitable for an assessment/demo rather than a production database. Set `PORT` in `.env` or the shell to change the server port. `SESSION_SECRET` is reserved for a production session implementation.
+The supplied screenshots remain the visual source of truth. Demo content displays until Supabase contains live posts, so the UI remains reviewable before credentials are configured. Messages, notifications and competitions currently have reference-quality UI and realistic empty/demo states; their database models and live APIs are intentionally not claimed as implemented.

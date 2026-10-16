@@ -1,0 +1,4 @@
+'use client';
+import { useEffect, useState } from 'react';
+import { AppShell } from '@/components/app-shell'; import { PostCard } from '@/components/post-card'; import { demoPosts } from '@/lib/demo-posts'; import type { Post } from '@/lib/types';
+export default function PostDetail({ params }: { params: Promise<{id:string}> }) { const [post,setPost]=useState<Post|null>(null); useEffect(()=>{params.then(({id})=>{const demo=demoPosts.find(p=>p.id===id);if(demo)setPost(demo);fetch('/api/posts/'+id).then(r=>r.ok?r.json():null).then(data=>data?.post&&setPost(data));});},[params]); if(!post) return <AppShell><section className="empty-state"><h2>Post not found</h2><p>It may have been deleted, or Supabase is not connected yet.</p></section></AppShell>; return <AppShell><section className="detail-page"><PostCard post={post} expanded/><div className="comments"><h3>Comments</h3><input placeholder="Add a comment"/><button>Send</button></div></section></AppShell>; }

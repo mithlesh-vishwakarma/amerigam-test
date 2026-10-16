@@ -1,0 +1,2 @@
+import { AppShell } from '@/components/app-shell'; import { Trophy } from 'lucide-react';
+export default function Competitions() { return <AppShell><h1 className="page-title">Competitions</h1><section className="competition"><Trophy size={35}/><div><small>OPEN COMPETITION</small><h2>Frame the extraordinary</h2><p>Share your strongest visual story. Submit a Post or Reel by 30 October.</p><button>View competition</button></div></section><section className="empty-state">More competitions will appear here as they open.</section></AppShell>; }
