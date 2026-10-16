@@ -5,9 +5,14 @@ import { useTopLoader } from './top-loader';
 interface InteractiveLogoProps {
   className?: string;
   size?: 'sm' | 'md' | 'lg';
+  showText?: boolean;
 }
 
-export function InteractiveLogo({ className = '', size = 'md' }: InteractiveLogoProps) {
+export function InteractiveLogo({
+  className = '',
+  size = 'md',
+  showText = true,
+}: InteractiveLogoProps) {
   const location = useLocation();
   const { triggerPulse } = useTopLoader();
 
@@ -24,6 +29,18 @@ export function InteractiveLogo({ className = '', size = 'md' }: InteractiveLogo
     lg: 42,
   };
 
+  const fontSizes = {
+    sm: 19,
+    md: 23,
+    lg: 28,
+  };
+
+  const gaps = {
+    sm: 8,
+    md: 10,
+    lg: 12,
+  };
+
   return (
     <Link
       to="/home"
@@ -33,6 +50,7 @@ export function InteractiveLogo({ className = '', size = 'md' }: InteractiveLogo
       style={{
         display: 'inline-flex',
         alignItems: 'center',
+        gap: `${gaps[size]}px`,
         textDecoration: 'none',
         userSelect: 'none',
       }}
@@ -41,13 +59,31 @@ export function InteractiveLogo({ className = '', size = 'md' }: InteractiveLogo
         src="/media/amerigam-logo-transparent.webp"
         alt="Amerigam"
         height={heights[size]}
+        className="brand-logo-img"
         style={{
           height: `${heights[size]}px`,
           width: 'auto',
           objectFit: 'contain',
           display: 'block',
+          flexShrink: 0,
         }}
       />
+      {showText && (
+        <span
+          className="brand-logo-text"
+          style={{
+            color: '#ffffff',
+            fontSize: `${fontSizes[size]}px`,
+            fontWeight: 700,
+            letterSpacing: '-0.025em',
+            lineHeight: 1,
+            userSelect: 'none',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          Amerigam
+        </span>
+      )}
     </Link>
   );
 }

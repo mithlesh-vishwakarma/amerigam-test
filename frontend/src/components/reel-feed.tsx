@@ -13,11 +13,22 @@ import {
   Check,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { demoReels, ReelItem } from '@/lib/demo-posts';
+import { ReelItem } from '@/lib/demo-posts';
+import { contentStore, CONTENT_UPDATED_EVENT } from '@/lib/content-store';
+import { getCurrentUser } from '@/lib/user-profiles';
+import {
+  fetchPosts,
+  togglePostLikeApi,
+  togglePostSaveApi,
+  incrementPostViewsApi,
+  toggleFollowApi,
+} from '@/lib/api';
 import { useTopLoader } from './top-loader';
 import { FloatingPillNav } from './floating-pill-nav';
+import { CommentsModal } from './comments-modal';
 
 export function ReelFeed() {
+  const [reels, setReels] = useState<ReelItem[]>(contentStore.getReels());
   const [currentIndex, setCurrentIndex] = useState(0);
   const [direction, setDirection] = useState<1 | -1>(1);
   const [isMuted, setIsMuted] = useState(true);
@@ -31,25 +42,102 @@ export function ReelFeed() {
   const [bookmarks, setBookmarks] = useState<Record<string, boolean>>({});
   const [followed, setFollowed] = useState<Record<string, boolean>>({});
   const [notice, setNotice] = useState<string | null>(null);
+  const [showComments, setShowComments] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const touchStartY = useRef<number>(0);
   const lastScrollTime = useRef<number>(0);
   const { triggerPulse } = useTopLoader();
 
-  const currentReel: ReelItem = demoReels[currentIndex] || demoReels[0];
+  // Load dynamic reels from backend
+  useEffect(() => {
+    let active = true;
+    async function loadReelsFromBackend() {
+      try {
+        const user = getCurrentUser();
+        const posts = await fetchPosts({ kind: 'reel', viewer_id: user.id });
+        if (active && posts && posts.length > 0) {
+          const mapped: ReelItem[] = posts.map((p) => ({
+            id: p.id,
+            title: p.title,
+            description: p.description,
+            video_url:
+              p.media_urls.find(
+                (m) =>
+                  m.endsWith('.mp4') ||
+                  m.endsWith('.webm') ||
+                  m.includes('reel') ||
+                  m.includes('video')
+              ) ||
+              p.media_urls[0] ||
+              '/media/reel-1.mp4',
+            poster_url:
+              p.poster_url ||
+              p.media_urls[0] ||
+              'https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?auto=format&fit=crop&w=800&q=80',
+            creator: {
+              name: p.profiles?.display_name || 'Creator',
+              username: p.profiles?.username || 'creator',
+              avatar:
+                p.profiles?.avatar_url ||
+                'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=120&q=80',
+              initial: (p.profiles?.display_name || 'C')[0],
+              role: p.profiles?.role || 'Creator',
+            },
+            likes: p.like_count || 120,
+            comments: p.comment_count || 12,
+            shares: 24,
+            views: p.views || 1000,
+            duration: '0:30',
+          }));
+
+          const storeReels = contentStore.getReels();
+          const merged = [...mapped];
+          storeReels.forEach((sr) => {
+            if (!merged.some((m) => m.id === sr.id)) merged.push(sr);
+          });
+          setReels(merged);
+
+          const initLikes: Record<string, { count: number; liked: boolean }> = {};
+          const initSaves: Record<string, boolean> = {};
+          posts.forEach((p) => {
+            initLikes[p.id] = { count: p.like_count || 0, liked: !!p.liked };
+            if (p.saved) initSaves[p.id] = true;
+          });
+          setLikes((prev) => ({ ...prev, ...initLikes }));
+          setBookmarks((prev) => ({ ...prev, ...initSaves }));
+        }
+      } catch (err) {
+        console.warn('Reels backend fetch warning:', err);
+      }
+    }
+    loadReelsFromBackend();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      setReels(contentStore.getReels());
+    };
+    window.addEventListener(CONTENT_UPDATED_EVENT, handleUpdate);
+    return () => window.removeEventListener(CONTENT_UPDATED_EVENT, handleUpdate);
+  }, []);
+
+  const currentReel: ReelItem = reels[currentIndex] || reels[0];
   const currentLikeState = likes[currentReel.id] || { count: currentReel.likes, liked: false };
   const isBookmarked = !!bookmarks[currentReel.id];
   const isFollowing = !!followed[currentReel.creator.username];
 
   const handleNextReel = useCallback(() => {
-    if (currentIndex < demoReels.length - 1) {
+    if (currentIndex < reels.length - 1) {
       setDirection(1);
       triggerPulse();
       setCurrentIndex((prev) => prev + 1);
       setIsPlaying(true);
     }
-  }, [currentIndex, triggerPulse]);
+  }, [currentIndex, reels.length, triggerPulse]);
 
   const handlePrevReel = useCallback(() => {
     if (currentIndex > 0) {
@@ -122,6 +210,13 @@ export function ReelFeed() {
     }
   }, [currentIndex]);
 
+  // Increment view on reel view
+  useEffect(() => {
+    if (currentReel?.id) {
+      incrementPostViewsApi(currentReel.id).catch(() => {});
+    }
+  }, [currentIndex, currentReel?.id]);
+
   const togglePlayPause = () => {
     if (videoRef.current) {
       if (videoRef.current.paused) {
@@ -134,31 +229,61 @@ export function ReelFeed() {
     }
   };
 
-  const toggleLike = () => {
-    setLikes((prev) => {
-      const current = prev[currentReel.id] || { count: currentReel.likes, liked: false };
-      return {
-        ...prev,
-        [currentReel.id]: {
-          liked: !current.liked,
-          count: current.liked ? current.count - 1 : current.count + 1,
-        },
-      };
-    });
+  const toggleLike = async () => {
+    const user = getCurrentUser();
+    const current = likes[currentReel.id] || { count: currentReel.likes, liked: false };
+    const newLiked = !current.liked;
+    const newCount = newLiked ? current.count + 1 : Math.max(0, current.count - 1);
+
+    setLikes((prev) => ({
+      ...prev,
+      [currentReel.id]: {
+        liked: newLiked,
+        count: newCount,
+      },
+    }));
+
+    try {
+      await togglePostLikeApi(currentReel.id, user.id);
+    } catch (err) {
+      console.warn('Backend like error:', err);
+    }
   };
 
-  const toggleBookmark = () => {
+  const toggleBookmark = async () => {
+    const user = getCurrentUser();
+    const newSaved = !isBookmarked;
+
     setBookmarks((prev) => ({
       ...prev,
-      [currentReel.id]: !prev[currentReel.id],
+      [currentReel.id]: newSaved,
     }));
+
+    setNotice(newSaved ? 'Reel saved to bookmarks!' : 'Reel removed from bookmarks');
+    setTimeout(() => setNotice(null), 2000);
+
+    try {
+      await togglePostSaveApi(currentReel.id, user.id);
+    } catch (err) {
+      console.warn('Backend save error:', err);
+    }
   };
 
-  const toggleFollow = () => {
+  const toggleFollow = async () => {
+    const user = getCurrentUser();
+    const newFollow = !isFollowing;
+
     setFollowed((prev) => ({
       ...prev,
-      [currentReel.creator.username]: !prev[currentReel.creator.username],
+      [currentReel.creator.username]: newFollow,
     }));
+
+    setNotice(newFollow ? `Following @${currentReel.creator.username}` : `Unfollowed @${currentReel.creator.username}`);
+    setTimeout(() => setNotice(null), 2000);
+
+    try {
+      await toggleFollowApi(user.id, currentReel.creator.username);
+    } catch {}
   };
 
   const handleShare = () => {
@@ -307,10 +432,7 @@ export function ReelFeed() {
             <button
               type="button"
               className="reel-action-item"
-              onClick={() => {
-                setNotice(`Comments (${currentReel.comments})`);
-                setTimeout(() => setNotice(null), 2000);
-              }}
+              onClick={() => setShowComments(true)}
               aria-label="Comments"
             >
               <div className="reel-icon-bubble">
@@ -379,7 +501,7 @@ export function ReelFeed() {
           <button
             type="button"
             className="reel-nav-circle-btn"
-            disabled={currentIndex === demoReels.length - 1}
+            disabled={currentIndex === reels.length - 1}
             onClick={handleNextReel}
             aria-label="Next reel"
           >
@@ -387,6 +509,19 @@ export function ReelFeed() {
           </button>
         </aside>
       </div>
+
+      {/* Comments Drawer Modal */}
+      <CommentsModal
+        postId={currentReel.id}
+        postTitle={currentReel.title}
+        isOpen={showComments}
+        onClose={() => setShowComments(false)}
+        onCommentAdded={(newCount) => {
+          setReels((prev) =>
+            prev.map((r) => (r.id === currentReel.id ? { ...r, comments: newCount } : r))
+          );
+        }}
+      />
 
       {/* Floating Pill Navigation Menu matching user screenshot */}
       <FloatingPillNav />

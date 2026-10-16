@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   Bell,
@@ -24,6 +24,12 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { InteractiveLogo } from './interactive-logo';
 import { useTopLoader } from './top-loader';
+import {
+  getCurrentUser,
+  getJoinedCommunitiesForUser,
+  AUTH_CHANGED_EVENT,
+  UserProfile,
+} from '@/lib/user-profiles';
 
 const communityCircles = [
   {
@@ -51,7 +57,7 @@ const communityCircles = [
 const nav = [
   ['Home', '/home', Home],
   ['Feed', '/feed', Rss],
-  ['Explore', '/search', Compass],
+  ['Explore', '/explore', Compass],
   ['Competitions', '/competitions', Trophy],
   ['Create', '/create', PlusSquare],
   ['Messages', '/messages', MessageCircle],
@@ -127,11 +133,37 @@ export function AppShell({
   isReelFeed?: boolean;
 }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [user, setUser] = useState<UserProfile>(getCurrentUser());
   const location = useLocation();
   const path = location.pathname;
   const navigate = useNavigate();
   const { triggerPulse } = useTopLoader();
   const isFeedMode = isReelFeed || path === '/feed';
+
+  useEffect(() => {
+    setUser(getCurrentUser());
+    const handleAuth = () => setUser(getCurrentUser());
+    window.addEventListener(AUTH_CHANGED_EVENT, handleAuth);
+    return () => window.removeEventListener(AUTH_CHANGED_EVENT, handleAuth);
+  }, []);
+
+  const queryParam = new URLSearchParams(location.search).get('q') || '';
+  const [headerSearch, setHeaderSearch] = useState(queryParam);
+
+  useEffect(() => {
+    setHeaderSearch(new URLSearchParams(location.search).get('q') || '');
+  }, [location.search]);
+
+  const handleSearchSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const q = headerSearch.trim();
+    triggerPulse();
+    if (q) {
+      navigate('/search?q=' + encodeURIComponent(q));
+    } else {
+      navigate('/search');
+    }
+  };
 
   const handleNavClick = (href: string) => {
     if (path !== href) {
@@ -141,7 +173,7 @@ export function AppShell({
 
   const handleShare = () => {
     if (typeof navigator !== 'undefined' && navigator.share) {
-      navigator.share({ title: 'Amerigam', url: window.location.href }).catch(() => {});
+      navigator.share({ title: 'Amerigam', url: window.location.href }).catch(() => { });
     } else {
       triggerPulse();
       navigator.clipboard?.writeText(window.location.href);
@@ -200,10 +232,10 @@ export function AppShell({
                 <div className="nav-divider" />
 
                 <Link
-                  className="mobile-drawer-item"
-                  to="/search?tab=communities"
+                  className={`mobile-drawer-item ${path === '/communities' ? 'active' : ''}`}
+                  to="/communities"
                   onClick={() => {
-                    handleNavClick('/search?tab=communities');
+                    handleNavClick('/communities');
                     setMobileMenuOpen(false);
                   }}
                 >
@@ -212,41 +244,73 @@ export function AppShell({
                 </Link>
 
                 <Link
-                  className="mobile-drawer-item"
-                  to="/search?tab=network"
+                  className={`mobile-drawer-item ${path === '/network' ? 'active' : ''}`}
+                  to="/network"
                   onClick={() => {
-                    handleNavClick('/search?tab=network');
+                    handleNavClick('/network');
                     setMobileMenuOpen(false);
                   }}
                 >
                   <Network size={20} strokeWidth={1.8} />
                   <span>Network</span>
                 </Link>
-
-                <Link
-                  className="mobile-drawer-item"
-                  to="/settings"
-                  onClick={() => {
-                    handleNavClick('/settings');
-                    setMobileMenuOpen(false);
-                  }}
-                >
-                  <Settings size={20} strokeWidth={1.8} />
-                  <span>Settings</span>
-                </Link>
               </nav>
 
+              {/* Mobile Drawer Footer: Notification & Settings shifted here right where the profile is settled */}
               <div className="mobile-drawer-footer">
+                <div className="drawer-shifted-actions">
+                  <Link
+                    to="/notifications"
+                    className={`drawer-shifted-action-btn ${path === '/notifications' ? 'active' : ''}`}
+                    onClick={() => {
+                      handleNavClick('/notifications');
+                      setMobileMenuOpen(false);
+                    }}
+                    title="Notifications"
+                  >
+                    <div className="shifted-icon-wrap">
+                      <Bell size={18} strokeWidth={1.8} />
+                      <span className="shifted-badge-dot" />
+                    </div>
+                    <span>Notification</span>
+                  </Link>
+                  <Link
+                    to="/settings"
+                    className={`drawer-shifted-action-btn ${path === '/settings' ? 'active' : ''}`}
+                    onClick={() => {
+                      handleNavClick('/settings');
+                      setMobileMenuOpen(false);
+                    }}
+                    title="Settings"
+                  >
+                    <div className="shifted-icon-wrap">
+                      <Settings size={18} strokeWidth={1.8} />
+                    </div>
+                    <span>Settings</span>
+                  </Link>
+                </div>
+
                 <div className="drawer-user-row">
                   <img
-                    src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=80&q=80"
-                    alt="Profile"
+                    src={user?.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=160&q=80'}
+                    alt={user?.display_name || 'User'}
                     className="drawer-avatar"
+                    style={{ border: `2px solid ${user?.themeColor || '#00a8ed'}` }}
                   />
                   <div className="drawer-user-info">
-                    <b>Editor</b>
-                    <small>Rank #17 · Rating 5.0</small>
+                    <b>{user?.display_name || 'Alex Rivera'}</b>
+                    <small>{user?.role || 'Developer'} · Rank {user?.rank || '#1'}</small>
                   </div>
+                  <Link
+                    to="/login"
+                    className="drawer-switch-link"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      triggerPulse();
+                    }}
+                  >
+                    Switch
+                  </Link>
                 </div>
               </div>
             </motion.aside>
@@ -268,25 +332,44 @@ export function AppShell({
           <InteractiveLogo size="md" />
         </div>
 
-        <div className="search-wrap">
+        <form className="search-wrap" onSubmit={handleSearchSubmit}>
           <input
             aria-label="Search posts"
             placeholder="Search creators, stories, and tags..."
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && e.currentTarget.value.trim()) {
-                triggerPulse();
-                navigate('/search?q=' + encodeURIComponent(e.currentTarget.value.trim()));
-              }
-            }}
+            value={headerSearch}
+            onChange={(e) => setHeaderSearch(e.target.value)}
           />
-          <Search size={19} className="search-icon" />
-        </div>
+          {headerSearch ? (
+            <button
+              type="button"
+              className="search-clear-btn"
+              onClick={() => {
+                setHeaderSearch('');
+                if (location.pathname === '/search' || location.pathname === '/explore') {
+                  navigate(location.pathname);
+                }
+              }}
+              aria-label="Clear search"
+              style={{ background: 'transparent', border: 0, color: '#888', display: 'flex', alignItems: 'center', cursor: 'pointer', padding: 0 }}
+            >
+              <X size={15} />
+            </button>
+          ) : null}
+          <button
+            type="submit"
+            className="search-submit-btn"
+            aria-label="Submit search"
+            style={{ background: 'transparent', border: 0, color: '#888', display: 'flex', alignItems: 'center', cursor: 'pointer', padding: 0 }}
+          >
+            <Search size={18} className="search-icon" />
+          </button>
+        </form>
 
         {/* Action icons strictly matching user reference screenshot: Share, Globe, Bell, Settings */}
         <div className="top-actions">
           <button
             type="button"
-            className="action-icon-btn"
+            className="action-icon-btn desktop-only-action"
             aria-label="Share"
             title="Share"
             onClick={handleShare}
@@ -295,7 +378,7 @@ export function AppShell({
           </button>
           <Link
             to="/search"
-            className="action-icon-btn"
+            className="action-icon-btn desktop-only-action"
             aria-label="Explore Global"
             title="Explore Global"
             onClick={() => handleNavClick('/search')}
@@ -304,7 +387,7 @@ export function AppShell({
           </Link>
           <Link
             to="/notifications"
-            className={`action-icon-btn ${path === '/notifications' ? 'active' : ''}`}
+            className={`action-icon-btn desktop-only-action ${path === '/notifications' ? 'active' : ''}`}
             aria-label="Notifications"
             title="Notifications"
             onClick={() => handleNavClick('/notifications')}
@@ -313,69 +396,95 @@ export function AppShell({
           </Link>
           <Link
             to="/settings"
-            className={`action-icon-btn ${path === '/settings' ? 'active' : ''}`}
+            className={`action-icon-btn desktop-only-action ${path === '/settings' ? 'active' : ''}`}
             aria-label="Settings"
             title="Settings"
             onClick={() => handleNavClick('/settings')}
           >
             <Settings size={19} strokeWidth={1.7} />
           </Link>
+
+          {/* User profile avatar link to login / switch account */}
+          <Link
+            to="/login"
+            className="action-icon-btn user-avatar-top-btn"
+            aria-label="Switch Profile"
+            title={`Active: ${user?.display_name || 'User'} (${user?.role || 'Role'}) - Click to Switch Account`}
+            onClick={() => handleNavClick('/login')}
+            style={{ padding: 2 }}
+          >
+            <img
+              src={user?.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=160&q=80'}
+              alt={user?.display_name || 'User'}
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: '50%',
+                border: `2px solid ${user?.themeColor || '#00a8ed'}`,
+                objectFit: 'cover',
+                display: 'block',
+              }}
+            />
+          </Link>
         </div>
       </header>
 
       {/* 3-column body where left-nav, main-content, and right-rail each have their own scroll */}
       <div className={`app-body ${isFeedMode ? 'reel-body-layout' : ''}`}>
-        {/* Left column - independently scrollable (hidden on reel feed mode) */}
-        {!isFeedMode && (
-          <aside className="left-nav" aria-label="Main Navigation">
-            <div className="left-nav-top">
-              <nav className="left-nav-menu">
-                {nav.map(([label, href, I]) => (
-                  <Link
-                    key={href}
-                    className={`nav-item ${path === href ? 'active' : ''}`}
-                    to={href}
-                    onClick={() => handleNavClick(href)}
-                  >
-                    <I size={20} strokeWidth={1.8} className="nav-icon" />
-                    <span className="nav-label">{label}</span>
-                  </Link>
-                ))}
-              </nav>
-            </div>
+        {/* Left column - independently scrollable (hidden on mobile via CSS) */}
+        <aside className="left-nav" aria-label="Main Navigation">
+          <div className="left-nav-top">
+            <nav className="left-nav-menu">
+              {nav.map(([label, href, I]) => (
+                <Link
+                  key={href}
+                  className={`nav-item ${path === href ? 'active' : ''}`}
+                  to={href}
+                  onClick={() => handleNavClick(href)}
+                >
+                  <I size={20} strokeWidth={1.8} className="nav-icon" />
+                  <span className="nav-label">{label}</span>
+                </Link>
+              ))}
+            </nav>
 
-            {/* Bottom section: Communities, Network, Settings anchored to the bottom */}
-            <div className="left-nav-bottom">
-              <div className="nav-divider" />
-              <div className="left-nav-secondary">
-                <Link
-                  className={`nav-item secondary ${path === '/search' ? 'active' : ''}`}
-                  to="/search"
-                  onClick={() => handleNavClick('/search')}
-                >
-                  <Globe size={20} strokeWidth={1.8} className="nav-icon" />
-                  <span>Communities</span>
-                </Link>
-                <Link
-                  className="nav-item secondary"
-                  to="/search?tab=network"
-                  onClick={() => handleNavClick('/search?tab=network')}
-                >
-                  <Network size={20} strokeWidth={1.8} className="nav-icon" />
-                  <span>Network</span>
-                </Link>
-                <Link
-                  className="nav-item secondary nav-setting"
-                  to="/settings"
-                  onClick={() => handleNavClick('/settings')}
-                >
-                  <Settings size={20} strokeWidth={1.8} className="nav-icon" />
-                  <span>Settings</span>
-                </Link>
-              </div>
+            {/* Shifted with the divider line near the above menus */}
+            <div className="nav-divider" />
+            <div className="left-nav-secondary">
+              <Link
+                className={`nav-item secondary ${path === '/communities' ? 'active' : ''}`}
+                to="/communities"
+                onClick={() => handleNavClick('/communities')}
+              >
+                <Globe size={20} strokeWidth={1.8} className="nav-icon" />
+                <span>Communities</span>
+              </Link>
+              <Link
+                className={`nav-item secondary ${path === '/network' ? 'active' : ''}`}
+                to="/network"
+                onClick={() => handleNavClick('/network')}
+              >
+                <Network size={20} strokeWidth={1.8} className="nav-icon" />
+                <span>Network</span>
+              </Link>
             </div>
-          </aside>
-        )}
+          </div>
+
+          {/* Bottom section: Settings kept strictly to the end only */}
+          <div className="left-nav-bottom">
+            <div className="nav-divider" />
+            <div className="left-nav-secondary">
+              <Link
+                className={`nav-item secondary nav-setting ${path === '/settings' ? 'active' : ''}`}
+                to="/settings"
+                onClick={() => handleNavClick('/settings')}
+              >
+                <Settings size={20} strokeWidth={1.8} className="nav-icon" />
+                <span>Settings</span>
+              </Link>
+            </div>
+          </div>
+        </aside>
 
         {/* Central feed column - independently scrollable */}
         <main className={`main-content ${isFeedMode ? 'reel-main-content' : ''}`} tabIndex={-1}>
@@ -395,7 +504,15 @@ function RightRail() {
     'comm-1': true,
   });
   const [followedFriends, setFollowedFriends] = useState<Record<string, boolean>>({});
+  const [user, setUser] = useState<UserProfile>(getCurrentUser());
   const { triggerPulse } = useTopLoader();
+
+  useEffect(() => {
+    setUser(getCurrentUser());
+    const handleAuth = () => setUser(getCurrentUser());
+    window.addEventListener(AUTH_CHANGED_EVENT, handleAuth);
+    return () => window.removeEventListener(AUTH_CHANGED_EVENT, handleAuth);
+  }, []);
 
   const toggleCommunity = (id: string, e: React.MouseEvent) => {
     e.preventDefault();
@@ -407,6 +524,8 @@ function RightRail() {
     setFollowedFriends((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
+  const userCommunities = getJoinedCommunitiesForUser(user);
+
   return (
     <aside className="right-rail" aria-label="Sidebar information">
       {/* Profile Box */}
@@ -414,22 +533,28 @@ function RightRail() {
         <div className="profile-summary">
           <img
             className="profile-photo"
-            src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=120&q=80"
-            alt="Your profile"
+            src={user?.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=160&q=80'}
+            alt={user?.display_name || 'User'}
+            style={{ border: `2px solid ${user?.themeColor || '#00a8ed'}` }}
           />
           <div className="profile-info">
-            <b className="profile-role">Editor</b>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <b className="profile-role" style={{ color: user?.themeColor || '#00a8ed' }}>{user?.role || 'Developer'}</b>
+              <Link to="/login" className="profile-switch-badge" title="Switch Profile">
+                Switch
+              </Link>
+            </div>
             <div className="stats">
               <span>
-                <strong>#17</strong>
+                <strong>{user?.rank || '#1'}</strong>
                 <small>Rank</small>
               </span>
               <span>
-                <strong>0</strong>
+                <strong>{user?.points ? user.points.replace(' AP', '') : '4,820'}</strong>
                 <small>AP</small>
               </span>
               <span>
-                <strong>5.0</strong>
+                <strong>{user?.rating || '4.9'}</strong>
                 <small>Rating</small>
               </span>
             </div>
@@ -448,13 +573,13 @@ function RightRail() {
           </div>
 
           <div className="communities-circle-row" role="list">
-            {communityCircles.map((comm) => (
+            {userCommunities.map((comm) => (
               <Link
                 key={comm.id}
-                to="/search?tab=communities"
+                to={`/search?tab=communities&comm=${comm.id}`}
                 onClick={() => triggerPulse()}
                 className="community-circle-link"
-                title={comm.name}
+                title={`${comm.name} (${comm.members})`}
               >
                 <img src={comm.avatar} alt={comm.name} />
               </Link>
@@ -466,7 +591,7 @@ function RightRail() {
               onClick={() => triggerPulse()}
               className="community-circle-btn chevron-circle"
               aria-label="See more communities"
-              title="See more communities"
+              title="See all communities"
             >
               <ChevronRight size={16} strokeWidth={2.5} />
             </Link>

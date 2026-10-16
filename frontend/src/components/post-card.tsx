@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Ban,
@@ -16,6 +16,9 @@ import {
   VolumeX,
   Clapperboard,
 } from 'lucide-react';
+import { getCurrentUser } from '@/lib/user-profiles';
+import { togglePostLikeApi, togglePostSaveApi, incrementPostViewsApi } from '@/lib/api';
+import { CommentsModal } from './comments-modal';
 import type { Post } from '@/lib/types';
 
 export function MediaCard({ post }: { post: Post }) {
@@ -35,23 +38,46 @@ export function MediaCard({ post }: { post: Post }) {
 }
 
 export function PostCard({ post, expanded = false }: { post: Post; expanded?: boolean }) {
-  const [liked, setLiked] = useState(post.liked);
+  const [liked, setLiked] = useState(!!post.liked);
   const [count, setCount] = useState(post.like_count || 0);
+  const [commentsCount, setCommentsCount] = useState(post.comment_count || 0);
   const [menu, setMenu] = useState(false);
   const [notice, setNotice] = useState('');
   const [slide, setSlide] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
-  const [bookmarked, setBookmarked] = useState(false);
+  const [bookmarked, setBookmarked] = useState(!!post.saved);
   const [followed, setFollowed] = useState(false);
+  const [showComments, setShowComments] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
+  // Register view on view
+  useEffect(() => {
+    if (post.id) {
+      incrementPostViewsApi(post.id).catch(() => {});
+    }
+  }, [post.id]);
+
   const like = async () => {
-    setLiked(!liked);
-    setCount(liked ? count - 1 : count + 1);
+    const user = getCurrentUser();
+    const newLiked = !liked;
+    const newCount = newLiked ? count + 1 : Math.max(0, count - 1);
+    setLiked(newLiked);
+    setCount(newCount);
     try {
-      await fetch(`/api/posts/${post.id}/like`, { method: 'POST' });
+      await togglePostLikeApi(post.id, user.id);
+    } catch {}
+  };
+
+  const toggleSave = async () => {
+    const user = getCurrentUser();
+    const newSaved = !bookmarked;
+    setBookmarked(newSaved);
+    setNotice(newSaved ? 'Post saved to bookmarks!' : 'Post removed from bookmarks');
+    setTimeout(() => setNotice(''), 2000);
+    try {
+      await togglePostSaveApi(post.id, user.id);
     } catch {}
   };
 
@@ -240,20 +266,42 @@ export function PostCard({ post, expanded = false }: { post: Post; expanded?: bo
           >
             <Share2 size={18} />
           </button>
-          <Link to={`/posts/${post.id}`} aria-label="Comments">
+          <button
+            type="button"
+            onClick={() => setShowComments(true)}
+            aria-label="Comments"
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'inherit',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              cursor: 'pointer',
+            }}
+          >
             <MessageCircle size={18} />
-            <span>{post.comment_count ? (post.comment_count > 1000 ? `${(post.comment_count / 1000).toFixed(1)}k` : post.comment_count) : ''}</span>
-          </Link>
+            <span>{commentsCount > 0 ? (commentsCount > 1000 ? `${(commentsCount / 1000).toFixed(1)}k` : commentsCount) : ''}</span>
+          </button>
           <button
             type="button"
             className={bookmarked ? 'bookmarked' : ''}
-            onClick={() => setBookmarked(!bookmarked)}
+            onClick={toggleSave}
             aria-label="Save"
           >
             <Bookmark size={18} fill={bookmarked ? '#00a8ed' : 'none'} color={bookmarked ? '#00a8ed' : 'currentColor'} />
           </button>
         </div>
       </footer>
+
+      {/* Interactive Comments Modal */}
+      <CommentsModal
+        postId={post.id}
+        postTitle={post.title}
+        isOpen={showComments}
+        onClose={() => setShowComments(false)}
+        onCommentAdded={(newCount) => setCommentsCount(newCount)}
+      />
     </article>
   );
 }

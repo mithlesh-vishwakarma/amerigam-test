@@ -10,17 +10,24 @@ import { MessagesPage } from './pages/MessagesPage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { PostDetailPage } from './pages/PostDetailPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { LoginPage } from './pages/LoginPage';
 
 export function App() {
   return (
     <TopLoaderProvider>
       <Routes>
         <Route path="/" element={<Navigate to="/home" replace />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/auth" element={<LoginPage />} />
         <Route path="/home" element={<HomePage />} />
         <Route path="/feed" element={<FeedPage />} />
-        <Route path="/search" element={<SearchPage />} />
+        <Route path="/explore" element={<SearchPage defaultTab="explore" />} />
+        <Route path="/communities" element={<SearchPage defaultTab="communities" />} />
+        <Route path="/network" element={<SearchPage defaultTab="network" />} />
+        <Route path="/search" element={<SearchPage defaultTab="explore" />} />
         <Route path="/competitions" element={<CompetitionsPage />} />
         <Route path="/create" element={<CreatePage />} />
+        <Route path="/create/story" element={<CreatePage defaultKind="story" />} />
         <Route path="/messages" element={<MessagesPage />} />
         <Route path="/notifications" element={<NotificationsPage />} />
         <Route path="/settings" element={<SettingsPage />} />

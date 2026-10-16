@@ -1,11 +1,11 @@
 import React from 'react';
 import { AppShell } from '@/components/app-shell';
-import { Feed } from '@/components/feed';
+import { ReelFeed } from '@/components/reel-feed';
 
 export function FeedPage() {
   return (
     <AppShell right={false} isReelFeed>
-      <Feed variant="feed" />
+      <ReelFeed />
     </AppShell>
   );
 }

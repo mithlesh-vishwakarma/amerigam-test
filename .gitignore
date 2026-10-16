@@ -1,4 +1,31 @@
+# Dependencies
 node_modules/
+.pnp
+.pnp.js
+
+# Environment variables & secrets
+.env
+.env.*
+!.env.example
+
+# Build outputs
+dist/
+build/
 .next/
-.env.local
-.env*.local
+
+# Uploads & local media files
+backend/uploads/
+uploads/
+
+# Logs & temp
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.system_generated/
+
+# OS and Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
