@@ -1,4 +1,4 @@
-# Amerigam — Social Gaming & Creator Platform
+# Amerigam — Social metwork & Creator Platform
 
 <div align="center">
 
