@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { UserPlus, Plus, Check, X, ChevronLeft, ChevronRight, Sparkles, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { contentStore, CONTENT_UPDATED_EVENT } from '@/lib/content-store';
+import { CONTENT_UPDATED_EVENT } from '@/lib/content-store';
 import { AUTH_CHANGED_EVENT, getCurrentUser } from '@/lib/user-profiles';
 import { fetchStories, deleteStoryApi, toggleFollowApi } from '@/lib/api';
 import type { StoryItem } from '@/lib/types';
@@ -21,14 +21,11 @@ export function HomeStories() {
     setCurrentUser(user);
     try {
       const backendStories = await fetchStories(user.id);
-      if (backendStories && backendStories.length > 0) {
-        setStories(backendStories);
-        return;
-      }
+      setStories(backendStories || []);
     } catch (err) {
-      console.warn('Stories fetch failed, falling back:', err);
+      console.warn('Stories fetch failed:', err);
+      setStories([]);
     }
-    setStories(contentStore.getStories());
   };
 
   useEffect(() => {
@@ -65,7 +62,7 @@ export function HomeStories() {
     return () => clearInterval(interval);
   }, [activeStoryIndex, isPaused, stories.length]);
 
-  const userStory = contentStore.getUserStory();
+  const userStory = stories.find((s) => s.author?.username === currentUser.username);
   const hasUserStory = !!userStory;
 
   const handleOpenStory = (index: number) => {

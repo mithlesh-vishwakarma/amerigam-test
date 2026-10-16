@@ -3,7 +3,6 @@ import { useParams } from 'react-router-dom';
 import { Send, MessageCircle } from 'lucide-react';
 import { AppShell } from '@/components/app-shell';
 import { PostCard } from '@/components/post-card';
-import { demoPosts } from '@/lib/demo-posts';
 import { getCurrentUser } from '@/lib/user-profiles';
 import { fetchPostCommentsApi, addPostCommentApi, fetchPostById } from '@/lib/api';
 import type { Post } from '@/lib/types';
@@ -31,17 +30,13 @@ export function PostDetailPage() {
   const currentUser = getCurrentUser();
 
   useEffect(() => {
-    if (!id) return;
-    const demo = demoPosts.find((p) => p.id === id);
-    if (demo) setPost(demo);
-
-    // Fetch post and comments from backend
+    // Fetch post and comments from backend database
     fetchPostById(id, currentUser.id)
       .then((res) => {
         if (res?.post) setPost(res.post);
         if (res?.comments) setComments(res.comments);
       })
-      .catch(() => {});
+      .catch((err) => console.error('Fetch post error:', err));
 
     fetchPostCommentsApi(id)
       .then((items) => {
@@ -89,7 +84,7 @@ export function PostDetailPage() {
       <AppShell>
         <section className="empty-state" style={{ textAlign: 'center', padding: '3rem' }}>
           <h2>Post not found</h2>
-          <p style={{ opacity: 0.6 }}>It may have been moved or demo data is loading.</p>
+          <p style={{ opacity: 0.6 }}>This post could not be found in the database.</p>
         </section>
       </AppShell>
     );

@@ -22,7 +22,7 @@ import { CommentsModal } from './comments-modal';
 import type { Post } from '@/lib/types';
 
 export function MediaCard({ post }: { post: Post }) {
-  const image = post.media_urls[0];
+  const image = post.media_urls?.[0];
   return (
     <Link to={`/posts/${post.id}`} className="media-card">
       {image ? <img src={image} alt={post.title} /> : <div className="blog-cover" />}
@@ -30,7 +30,7 @@ export function MediaCard({ post }: { post: Post }) {
         <b>{post.title}</b>
         <small>@{post.profiles?.username || 'creator'}</small>
         <small>
-          <Play size={10} fill="currentColor" /> {Math.max(1, Math.round(post.views / 1000))}K · 0:18
+          <Play size={10} fill="currentColor" /> {((post.views || 0) / 1000).toFixed(1)}K
         </small>
       </div>
     </Link>
@@ -51,6 +51,14 @@ export function PostCard({ post, expanded = false }: { post: Post; expanded?: bo
   const [showComments, setShowComments] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  // Sync state with incoming database props
+  useEffect(() => {
+    setLiked(!!post.liked);
+    setCount(post.like_count || 0);
+    setCommentsCount(post.comment_count || 0);
+    setBookmarked(!!post.saved);
+  }, [post.id, post.liked, post.like_count, post.comment_count, post.saved]);
 
   // Register view on view
   useEffect(() => {

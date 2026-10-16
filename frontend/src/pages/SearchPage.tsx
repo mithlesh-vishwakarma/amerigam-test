@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useSearchParams, useLocation, useNavigate, Link } from 'react-router-dom';
 import {
   Globe,
@@ -25,19 +25,23 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { AppShell } from '@/components/app-shell';
 import { MediaCard } from '@/components/post-card';
-import { contentStore, CONTENT_UPDATED_EVENT } from '@/lib/content-store';
+import { CONTENT_UPDATED_EVENT } from '@/lib/content-store';
 import {
   getAllCommunities,
   getAllProfiles,
-  COMMUNITY_POSTS,
   getCurrentUser,
   CommunityProfile,
   UserProfile,
 } from '@/lib/user-profiles';
 import { useTopLoader } from '@/components/top-loader';
-import { fetchCommunities, fetchPosts, toggleJoinCommunityApi, toggleFollowApi } from '@/lib/api';
-import type { Post } from '@/lib/types';
-import type { ReelItem } from '@/lib/demo-posts';
+import {
+  fetchCommunities,
+  fetchPosts,
+  fetchProfiles,
+  toggleJoinCommunityApi,
+  toggleFollowApi,
+} from '@/lib/api';
+import type { Post, ReelItem } from '@/lib/types';
 
 interface SearchPageProps {
   defaultTab?: 'explore' | 'communities' | 'network';
@@ -75,8 +79,8 @@ export function SearchPage({ defaultTab = 'explore' }: SearchPageProps) {
   const [selectedTag, setSelectedTag] = useState('All');
   const [networkRoleFilter, setNetworkRoleFilter] = useState<string>('All');
 
-  // Communities state
-  const communities = getAllCommunities();
+  // Live Database State
+  const [communities, setCommunities] = useState<CommunityProfile[]>(getAllCommunities());
   const initialCommId = searchParams.get('comm') || communities[0]?.id || 'comm-dev';
   const [selectedCommId, setSelectedCommId] = useState<string>(initialCommId);
   const [communityKindFilter, setCommunityKindFilter] = useState<'all' | 'post' | 'blog' | 'reel'>('all');
@@ -90,56 +94,75 @@ export function SearchPage({ defaultTab = 'explore' }: SearchPageProps) {
     'user-dev': true,
   });
 
-  // Dynamic reactive data
-  const [allPosts, setAllPosts] = useState<Post[]>(contentStore.getPosts());
-  const [allReels, setAllReels] = useState<ReelItem[]>(contentStore.getReels());
-  const allProfiles = getAllProfiles();
+  // Dynamic reactive data from live backend database
+  const [allPosts, setAllPosts] = useState<Post[]>([]);
+  const [allProfiles, setAllProfiles] = useState<UserProfile[]>(getAllProfiles());
+
+  const allReels: ReelItem[] = useMemo(() => {
+    return allPosts
+      .filter((p) => p.kind === 'reel')
+      .map((p) => ({
+        id: p.id,
+        title: p.title,
+        description: p.description,
+        video_url: p.media_urls?.[0] || '/media/reel-1.mp4',
+        poster_url:
+          p.poster_url ||
+          p.media_urls?.[0] ||
+          'https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?auto=format&fit=crop&w=800&q=80',
+        creator: {
+          id: p.profiles?.id || p.author_id,
+          name: p.profiles?.display_name || 'Creator',
+          username: p.profiles?.username || 'creator',
+          avatar: p.profiles?.avatar_url || '',
+          initial: (p.profiles?.display_name || 'C')[0],
+          role: p.profiles?.role || 'Creator',
+        },
+        likes: p.like_count ?? 0,
+        comments: p.comment_count ?? 0,
+        shares: 0,
+        views: p.views ?? 0,
+        duration: p.duration || '0:30',
+      }));
+  }, [allPosts]);
 
   useEffect(() => {
     setSearchInput(q);
   }, [q]);
 
-  useEffect(() => {
-    const handleUpdate = () => {
-      setAllPosts(contentStore.getPosts());
-      setAllReels(contentStore.getReels());
-    };
-    window.addEventListener(CONTENT_UPDATED_EVENT, handleUpdate);
-    return () => window.removeEventListener(CONTENT_UPDATED_EVENT, handleUpdate);
-  }, []);
+  const loadBackendData = useCallback(async () => {
+    try {
+      const user = getCurrentUser();
+      const [postsRes, commsRes, profsRes] = await Promise.all([
+        fetchPosts({ q: q || undefined, viewer_id: user.id }),
+        fetchCommunities({ q: q || undefined, viewer_id: user.id }),
+        fetchProfiles(),
+      ]);
 
-  // Sync with backend on search/mount
-  useEffect(() => {
-    let active = true;
-    async function loadBackendData() {
-      try {
-        const user = getCurrentUser();
-        const [postsRes, commsRes] = await Promise.all([
-          fetchPosts({ q: q || undefined, viewer_id: user.id }),
-          fetchCommunities({ q: q || undefined, viewer_id: user.id }),
-        ]);
-
-        if (active) {
-          if (postsRes && postsRes.length > 0) {
-            setAllPosts(postsRes);
-          }
-          if (commsRes && commsRes.length > 0) {
-            const newJoined: Record<string, boolean> = {};
-            commsRes.forEach((c) => {
-              if (c.joined) newJoined[c.id] = true;
-            });
-            setJoinedMap((prev) => ({ ...prev, ...newJoined }));
-          }
-        }
-      } catch (err) {
-        console.warn('SearchPage backend fetch error:', err);
+      if (postsRes) {
+        setAllPosts(postsRes);
       }
+      if (commsRes && commsRes.length > 0) {
+        setCommunities(commsRes);
+        const newJoined: Record<string, boolean> = {};
+        commsRes.forEach((c) => {
+          if (c.joined) newJoined[c.id] = true;
+        });
+        setJoinedMap((prev) => ({ ...prev, ...newJoined }));
+      }
+      if (profsRes && profsRes.length > 0) {
+        setAllProfiles(profsRes);
+      }
+    } catch (err) {
+      console.warn('SearchPage backend fetch error:', err);
     }
-    loadBackendData();
-    return () => {
-      active = false;
-    };
   }, [q]);
+
+  useEffect(() => {
+    loadBackendData();
+    window.addEventListener(CONTENT_UPDATED_EVENT, loadBackendData);
+    return () => window.removeEventListener(CONTENT_UPDATED_EVENT, loadBackendData);
+  }, [loadBackendData]);
 
   const toggleJoin = async (id: string) => {
     triggerPulse();
@@ -282,7 +305,10 @@ export function SearchPage({ defaultTab = 'explore' }: SearchPageProps) {
 
   // Selected Community for Communities view
   const selectedCommunity = communities.find((c) => c.id === selectedCommId) || communities[0];
-  const communityPostsRaw = selectedCommId ? COMMUNITY_POSTS[selectedCommId] || [] : [];
+  const communityPostsRaw = useMemo(() => {
+    if (!selectedCommId) return [];
+    return allPosts.filter((p) => (p as any).community_id === selectedCommId);
+  }, [allPosts, selectedCommId]);
   const selectedCommunityPosts = useMemo(() => {
     if (communityKindFilter === 'all') return communityPostsRaw;
     return communityPostsRaw.filter((p) => p.kind === communityKindFilter);
@@ -477,13 +503,16 @@ export function SearchPage({ defaultTab = 'explore' }: SearchPageProps) {
                   </div>
 
                   <div className="discover-grid">
-                    {selectedCommunityPosts.map((post) => (
-                      <MediaCard post={post} key={post.id} />
-                    ))}
-                    {/* Fallback demo posts */}
-                    {allPosts.slice(0, 4).map((post) => (
-                      <MediaCard post={post} key={`comm-post-${post.id}`} />
-                    ))}
+                    {selectedCommunityPosts.length > 0 ? (
+                      selectedCommunityPosts.map((post) => (
+                        <MediaCard post={post} key={post.id} />
+                      ))
+                    ) : (
+                      <div style={{ gridColumn: '1 / -1', padding: '3.5rem 1rem', textAlign: 'center', color: '#94a3b8' }}>
+                        <p style={{ margin: 0, fontSize: '14px', fontWeight: 500 }}>No posts published in this community yet.</p>
+                        <p style={{ margin: '6px 0 0', fontSize: '12px', color: '#64748b' }}>Be the first to share content with this community!</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </motion.div>

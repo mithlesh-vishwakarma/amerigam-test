@@ -64,3 +64,26 @@ export type CommunityProfile = {
   tags: string[];
   featuredPostTitle: string;
 };
+
+export type ReelItem = {
+  id: string;
+  title: string;
+  description: string;
+  video_url: string;
+  poster_url: string;
+  creator: {
+    id?: string;
+    name: string;
+    username: string;
+    avatar?: string;
+    initial: string;
+    role: string;
+  };
+  likes: number;
+  comments: number;
+  shares: number;
+  views: number;
+  duration?: string;
+  music?: string;
+  badgeTop?: boolean;
+};

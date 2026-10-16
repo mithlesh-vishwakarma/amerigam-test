@@ -30,6 +30,7 @@ import {
   AUTH_CHANGED_EVENT,
   UserProfile,
 } from '@/lib/user-profiles';
+import { fetchProfiles, toggleFollowApi } from '@/lib/api';
 
 const communityCircles = [
   {
@@ -96,30 +97,6 @@ const communityProfiles = [
     icon: '🎬',
     color: 'from-amber-500 to-orange-500',
     query: 'Cinema',
-  },
-];
-
-const mockFriends = [
-  {
-    id: 'friend-1',
-    name: 'Khyatish sarapaddiya',
-    role: 'Co-founder · Business',
-    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=80&q=75',
-    online: true,
-  },
-  {
-    id: 'friend-2',
-    name: 'Sarah Jenkins',
-    role: 'Motion Designer',
-    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=80&q=75',
-    online: true,
-  },
-  {
-    id: 'friend-3',
-    name: 'David Kim',
-    role: 'Creative Technologist',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=80&q=75',
-    online: false,
   },
 ];
 
@@ -504,8 +481,27 @@ function RightRail() {
     'comm-1': true,
   });
   const [followedFriends, setFollowedFriends] = useState<Record<string, boolean>>({});
+  const [friendsList, setFriendsList] = useState<any[]>([]);
   const [user, setUser] = useState<UserProfile>(getCurrentUser());
   const { triggerPulse } = useTopLoader();
+
+  useEffect(() => {
+    fetchProfiles().then((profs) => {
+      if (profs && profs.length > 0) {
+        setFriendsList(
+          profs
+            .filter((p) => p.id !== user.id)
+            .map((p) => ({
+              id: p.id,
+              name: p.display_name,
+              role: p.role,
+              avatar: p.avatar_url,
+              online: true,
+            }))
+        );
+      }
+    });
+  }, [user.id]);
 
   useEffect(() => {
     setUser(getCurrentUser());
@@ -520,8 +516,11 @@ function RightRail() {
     setJoinedCommunities((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const toggleFollow = (id: string) => {
+  const toggleFollow = async (id: string) => {
     setFollowedFriends((prev) => ({ ...prev, [id]: !prev[id] }));
+    try {
+      await toggleFollowApi(user.id, id);
+    } catch {}
   };
 
   const userCommunities = getJoinedCommunitiesForUser(user);
@@ -605,11 +604,11 @@ function RightRail() {
       <section className="friend-box">
         <div className="panel-heading">
           <b>Active Friends</b>
-          <span className="online-badge-count">2 online</span>
+          <span className="online-badge-count">{friendsList.length} creators</span>
         </div>
 
         <div className="friends-list">
-          {(expanded ? mockFriends : mockFriends.slice(0, 2)).map((friend) => (
+          {(expanded ? friendsList : friendsList.slice(0, 2)).map((friend) => (
             <div className="friend-row" key={friend.id}>
               <div className="online-avatar">
                 <img src={friend.avatar} alt={friend.name} />

@@ -1,13 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Play, MoreVertical, Sparkles, Globe, Users, ArrowRight, Check, Heart, Bookmark, MessageCircle, Share2 } from 'lucide-react';
-import { demoHomeMainPost, demoHomeSideStack, ReelItem } from '@/lib/demo-posts';
-import { contentStore, CONTENT_UPDATED_EVENT } from '@/lib/content-store';
+import type { ReelItem } from '@/lib/types';
 import {
   AUTH_CHANGED_EVENT,
   getCurrentUser,
   getJoinedCommunitiesForUser,
-  COMMUNITY_POSTS,
   UserProfile,
 } from '@/lib/user-profiles';
 import { FeedFilters } from './feed-filters';
@@ -21,52 +19,43 @@ export function Feed({ variant = 'home' }: { variant?: 'home' | 'feed' }) {
   const [showFullCaption, setShowFullCaption] = useState(false);
   const [filter, setFilter] = useState('For You');
   const [currentUserProfile, setCurrentUserProfile] = useState<UserProfile>(getCurrentUser());
-  const [reels, setReels] = useState<ReelItem[]>(contentStore.getReels());
-  const [posts, setPosts] = useState<Post[]>(contentStore.getPosts());
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedCommunityFilter, setSelectedCommunityFilter] = useState<string>('all');
   const [primaryLiked, setPrimaryLiked] = useState(false);
-  const [primaryLikesCount, setPrimaryLikesCount] = useState(730);
+  const [primaryLikesCount, setPrimaryLikesCount] = useState(0);
   const [primarySaved, setPrimarySaved] = useState(false);
-  const [primaryCommentsCount, setPrimaryCommentsCount] = useState(82);
+  const [primaryCommentsCount, setPrimaryCommentsCount] = useState(0);
   const [showCommentsModal, setShowCommentsModal] = useState(false);
   const [commentsPostId, setCommentsPostId] = useState<string>('');
   const [notice, setNotice] = useState<string>('');
 
-  // Load from backend API
-  useEffect(() => {
-    let active = true;
-    async function loadData() {
-      try {
-        const feedType = filter === 'Communities' ? 'communities' : filter === 'Network' ? 'network' : 'for_you';
-        const backendPosts = await fetchPosts({
-          feed_type: feedType,
-          viewer_id: currentUserProfile.id,
-        });
-        if (active && backendPosts && backendPosts.length > 0) {
-          setPosts(backendPosts);
-        }
-      } catch (err) {
-        console.warn('Backend posts load error:', err);
+  // Load posts purely from live backend database
+  const loadPosts = async () => {
+    try {
+      const feedType = filter === 'Communities' ? 'communities' : filter === 'Network' ? 'network' : 'for_you';
+      const backendPosts = await fetchPosts({
+        feed_type: feedType,
+        viewer_id: currentUserProfile.id,
+      });
+      if (backendPosts) {
+        setPosts(backendPosts);
       }
+    } catch (err) {
+      console.warn('Backend posts load error:', err);
+    } finally {
+      setLoading(false);
     }
-    loadData();
-    return () => {
-      active = false;
-    };
+  };
+
+  useEffect(() => {
+    loadPosts();
   }, [filter, currentUserProfile.id]);
 
   useEffect(() => {
-    const handleUpdate = () => {
-      setCurrentUserProfile(getCurrentUser());
-      setReels(contentStore.getReels());
-      setPosts(contentStore.getPosts());
-    };
-    window.addEventListener(CONTENT_UPDATED_EVENT, handleUpdate);
-    window.addEventListener(AUTH_CHANGED_EVENT, handleUpdate);
-    return () => {
-      window.removeEventListener(CONTENT_UPDATED_EVENT, handleUpdate);
-      window.removeEventListener(AUTH_CHANGED_EVENT, handleUpdate);
-    };
+    const handleAuth = () => setCurrentUserProfile(getCurrentUser());
+    window.addEventListener(AUTH_CHANGED_EVENT, handleAuth);
+    return () => window.removeEventListener(AUTH_CHANGED_EVENT, handleAuth);
   }, []);
 
   const userCommunities = getJoinedCommunitiesForUser(currentUserProfile);
@@ -74,49 +63,91 @@ export function Feed({ variant = 'home' }: { variant?: 'home' | 'feed' }) {
   // Dynamically filtered posts based on active tab ('For You' | 'Communities' | 'Network')
   const displayedPosts = useMemo(() => {
     if (filter === 'Communities') {
-      let commPosts: Post[] = [];
-      userCommunities.forEach((c) => {
-        if (selectedCommunityFilter === 'all' || selectedCommunityFilter === c.id) {
-          const list = COMMUNITY_POSTS[c.id] || [];
-          commPosts.push(...list);
-        }
-      });
-      // Also include any user-created posts that mention or tag communities
-      const userTagged = posts.filter((p) => p.location?.includes('Guild') || p.kind === 'blog');
-      const merged = [...commPosts, ...userTagged];
-      return merged.length > 0 ? merged : posts;
+      if (selectedCommunityFilter === 'all') return posts;
+      return posts.filter((p) => p.community_id === selectedCommunityFilter);
     }
-
     if (filter === 'Network') {
-      // Posts from friends and connected peers
-      return posts.filter((p) => p.author_id !== currentUserProfile.id || p.collaborators?.length);
+      return posts.filter((p) => p.author_id !== currentUserProfile.id);
     }
-
-    // Default 'For You'
     return posts;
-  }, [filter, posts, userCommunities, selectedCommunityFilter, currentUserProfile.id]);
+  }, [filter, posts, selectedCommunityFilter, currentUserProfile.id]);
 
-  // Primary featured post
-  const primaryPost: Post = displayedPosts[0] || {
-    id: demoHomeMainPost.id,
-    author_id: 'user-demo',
-    title: 'The Colour Grading Process: Kodak 2383 Film Emulation',
-    description: demoHomeMainPost.caption,
-    kind: 'post',
-    media_urls: demoHomeMainPost.slides.map((s) => s.image),
-    views: 31400,
-    created_at: new Date().toISOString(),
-    profiles: {
-      id: 'user-demo',
-      username: demoHomeMainPost.author.username,
-      display_name: demoHomeMainPost.author.name,
-      avatar_url: demoHomeMainPost.author.avatar,
-      role: demoHomeMainPost.author.role,
-    },
-  };
+  // Primary featured post (Live Database)
+  const primaryPost: Post | undefined = displayedPosts[0];
 
-  // Remaining posts for side stack
-  const sidePosts = displayedPosts.slice(1, 4);
+  useEffect(() => {
+    if (primaryPost) {
+      setPrimaryLiked(Boolean(primaryPost.liked));
+      setPrimaryLikesCount(primaryPost.like_count ?? 0);
+      setPrimarySaved(Boolean(primaryPost.saved));
+      setPrimaryCommentsCount(primaryPost.comment_count ?? 0);
+    }
+  }, [primaryPost?.id, primaryPost?.liked, primaryPost?.like_count, primaryPost?.saved, primaryPost?.comment_count]);
+
+  // Derive Reels strictly from database posts
+  const reels: ReelItem[] = useMemo(() => {
+    return posts
+      .filter((p) => p.kind === 'reel')
+      .map((p) => ({
+        id: p.id,
+        title: p.title,
+        description: p.description,
+        video_url:
+          p.media_urls?.find(
+            (m) =>
+              m.endsWith('.mp4') ||
+              m.endsWith('.webm') ||
+              m.includes('reel') ||
+              m.includes('video')
+          ) ||
+          p.media_urls?.[0] ||
+          '/media/reel-1.mp4',
+        poster_url:
+          p.poster_url ||
+          p.media_urls?.[0] ||
+          'https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?auto=format&fit=crop&w=800&q=80',
+        creator: {
+          name: p.profiles?.display_name || 'Creator',
+          username: p.profiles?.username || 'creator',
+          avatar:
+            p.profiles?.avatar_url ||
+            'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=120&q=80',
+          initial: (p.profiles?.display_name || 'C')[0],
+          role: p.profiles?.role || 'Creator',
+        },
+        likes: p.like_count ?? 0,
+        comments: p.comment_count ?? 0,
+        shares: 24,
+        views: p.views ?? 0,
+        duration: p.duration || '0:30',
+      }));
+  }, [posts]);
+
+  if (loading) {
+    return (
+      <div className="home-dashboard-layout" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+        <div style={{ color: '#00a8ed', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+          <div style={{ width: 32, height: 32, borderRadius: '50%', border: '3px solid rgba(0,168,237,0.2)', borderTopColor: '#00a8ed', animation: 'spin 0.8s linear infinite' }} />
+          <span style={{ fontSize: 13, letterSpacing: '0.04em', color: '#94a3b8' }}>Loading feed from database...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!primaryPost) {
+    return (
+      <div className="home-dashboard-layout">
+        <FeedFilters onChange={setFilter} />
+        <HomeStories />
+        <div style={{ padding: '60px 20px', textAlign: 'center', color: '#94a3b8' }}>
+          <h3 style={{ color: '#e2e8f0' }}>No posts found in this feed.</h3>
+          <p style={{ fontSize: '13px', marginTop: 8 }}>Create the first post from the Create page!</p>
+        </div>
+      </div>
+    );
+  }
+
+  const sidePosts = displayedPosts.slice(1);
 
   return (
     <div className="home-dashboard-layout">
@@ -412,7 +443,7 @@ export function Feed({ variant = 'home' }: { variant?: 'home' | 'feed' }) {
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <span style={{ fontSize: '12px', color: '#64748b', display: 'flex', alignItems: 'center', gap: 4 }}>
-                <Play size={10} fill="currentColor" /> {((primaryPost.views || 18400) / 1000).toFixed(1)}K Views
+                <Play size={10} fill="currentColor" /> {((primaryPost.views || 0) / 1000).toFixed(1)}K Views
               </span>
               <button
                 type="button"
@@ -449,7 +480,8 @@ export function Feed({ variant = 'home' }: { variant?: 'home' | 'feed' }) {
                 key={card.id}
                 className="side-stack-card"
                 style={{
-                  backgroundImage: `url(${card.media_urls[0] || 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=800&q=80'})`,
+                  backgroundImage: card.media_urls?.[0] ? `url(${card.media_urls[0]})` : undefined,
+                  backgroundColor: '#1b1d24',
                   textDecoration: 'none',
                 }}
               >
@@ -460,33 +492,16 @@ export function Feed({ variant = 'home' }: { variant?: 'home' | 'feed' }) {
                   <div className="home-card-views">
                     <Play size={10} fill="currentColor" strokeWidth={0} />
                     <span>
-                      {((card.views || 12000) / 1000).toFixed(1)}K · 0:30
+                      {((card.views || 0) / 1000).toFixed(1)}K · 0:30
                     </span>
                   </div>
                 </div>
               </Link>
             ))
           ) : (
-            demoHomeSideStack.map((card) => (
-              <Link
-                to="/feed"
-                key={card.id}
-                className="side-stack-card"
-                style={{ backgroundImage: `url(${card.image})`, textDecoration: 'none' }}
-              >
-                <div className="home-card-scrim" />
-                <div className="home-card-content">
-                  <h4 className="home-card-title">{card.title}</h4>
-                  <p className="home-card-handle">{card.authorHandle}</p>
-                  <div className="home-card-views">
-                    <Play size={10} fill="currentColor" strokeWidth={0} />
-                    <span>
-                      {card.views} · {card.duration}
-                    </span>
-                  </div>
-                </div>
-              </Link>
-            ))
+            <div style={{ padding: '24px 16px', color: '#64748b', fontSize: '13px', textAlign: 'center' }}>
+              No other posts in this stream.
+            </div>
           )}
         </div>
       </section>

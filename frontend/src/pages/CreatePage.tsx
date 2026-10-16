@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AppShell } from '@/components/app-shell';
-import { contentStore } from '@/lib/content-store';
+import { notifyContentUpdated } from '@/lib/content-store';
 import { getCurrentUser } from '@/lib/user-profiles';
 import { uploadMediaFile, createPostApi, createStoryApi } from '@/lib/api';
 import type { ContentKind } from '@/lib/types';
@@ -170,24 +170,12 @@ export function CreatePage({ defaultKind }: CreatePageProps) {
 
       if (kind === 'story') {
         // STRICT REQUIREMENT: Posts ONLY to Stories, NOT to Feed!
-        const mediaUrl = uploadedUrl || 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1080&q=80';
+        const mediaUrl = uploadedUrl || preview || 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1080&q=80';
         const isVideo = mediaUrl.endsWith('.mp4') || file?.type.startsWith('video/');
 
-        // Save to Database
-        try {
-          await createStoryApi({
-            author_id: activeUser.id,
-            media_url: mediaUrl,
-            media_type: isVideo ? 'video' : 'image',
-            caption: description || title,
-            text_overlay: storyTextOverlay,
-            filter: storyFilter,
-          });
-        } catch (dbErr) {
-          console.warn('Database story save warning:', dbErr);
-        }
-
-        contentStore.addStory({
+        // Save directly to Live Supabase Database
+        await createStoryApi({
+          author_id: activeUser.id,
           media_url: mediaUrl,
           media_type: isVideo ? 'video' : 'image',
           caption: description || title,
@@ -195,36 +183,22 @@ export function CreatePage({ defaultKind }: CreatePageProps) {
           filter: storyFilter,
         });
 
-        setToastMessage('Story published to your 24h stories!');
+        notifyContentUpdated();
+        setToastMessage('Story published to your 24h stories in the database!');
         setTimeout(() => {
           navigate('/home');
-        }, 600);
+        }, 500);
       } else if (kind === 'reel') {
         // STRICT REQUIREMENT: Posts to Reels Section!
-        const videoUrl = uploadedUrl || '/media/reel-1.mp4';
+        const videoUrl = uploadedUrl || preview || '/media/reel-1.mp4';
 
-        // Save to Database
-        try {
-          await createPostApi({
-            author_id: activeUser.id,
-            title,
-            description: description || 'Cinematic reel breakdown on Amerigam.',
-            kind: 'reel',
-            media_urls: [videoUrl],
-            poster_url: 'https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?auto=format&fit=crop&w=800&q=80',
-            location,
-            collaborators,
-            is_ai_labeled: aiLabel,
-            hide_stats: hideStats,
-          });
-        } catch (dbErr) {
-          console.warn('Database reel save warning:', dbErr);
-        }
-
-        contentStore.addReel({
+        // Save directly to Live Supabase Database
+        await createPostApi({
+          author_id: activeUser.id,
           title,
           description: description || 'Cinematic reel breakdown on Amerigam.',
-          video_url: videoUrl,
+          kind: 'reel',
+          media_urls: [videoUrl],
           poster_url: 'https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?auto=format&fit=crop&w=800&q=80',
           location,
           collaborators,
@@ -232,36 +206,24 @@ export function CreatePage({ defaultKind }: CreatePageProps) {
           hide_stats: hideStats,
         });
 
-        setToastMessage('Reel published to the Reels section!');
+        notifyContentUpdated();
+        setToastMessage('Reel published to the Reels section in the database!');
         setTimeout(() => {
           navigate('/feed');
-        }, 600);
+        }, 500);
       } else {
         // Post or Blog: Posts to Feed
         const mediaUrls = uploadedUrl
           ? [uploadedUrl]
+          : preview
+          ? [preview]
           : kind === 'blog'
           ? ['https://images.unsplash.com/photo-1499750310107-5fef28a66643?auto=format&fit=crop&w=1200&q=80']
           : ['https://images.unsplash.com/photo-1514565131-fce0801e5785?auto=format&fit=crop&w=1200&q=80'];
 
-        // Save to Database
-        try {
-          await createPostApi({
-            author_id: activeUser.id,
-            title,
-            description,
-            kind: kind === 'blog' ? 'blog' : 'post',
-            media_urls: mediaUrls,
-            location,
-            collaborators,
-            is_ai_labeled: aiLabel,
-            hide_stats: hideStats,
-          });
-        } catch (dbErr) {
-          console.warn('Database post save warning:', dbErr);
-        }
-
-        contentStore.addPost({
+        // Save directly to Live Supabase Database
+        await createPostApi({
+          author_id: activeUser.id,
           title,
           description,
           kind: kind === 'blog' ? 'blog' : 'post',
@@ -272,10 +234,11 @@ export function CreatePage({ defaultKind }: CreatePageProps) {
           hide_stats: hideStats,
         });
 
-        setToastMessage(`${kind === 'blog' ? 'Blog' : 'Post'} published to Feed!`);
+        notifyContentUpdated();
+        setToastMessage(`${kind === 'blog' ? 'Blog' : 'Post'} published to the database!`);
         setTimeout(() => {
           navigate('/home');
-        }, 600);
+        }, 500);
       }
     } catch (err: any) {
       setError(err?.message || 'Failed to publish. Navigating to home.');

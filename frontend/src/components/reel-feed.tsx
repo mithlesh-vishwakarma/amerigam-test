@@ -13,8 +13,8 @@ import {
   Check,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ReelItem } from '@/lib/demo-posts';
-import { contentStore, CONTENT_UPDATED_EVENT } from '@/lib/content-store';
+import type { ReelItem } from '@/lib/types';
+import { CONTENT_UPDATED_EVENT } from '@/lib/content-store';
 import { getCurrentUser } from '@/lib/user-profiles';
 import {
   fetchPosts,
@@ -28,17 +28,13 @@ import { FloatingPillNav } from './floating-pill-nav';
 import { CommentsModal } from './comments-modal';
 
 export function ReelFeed() {
-  const [reels, setReels] = useState<ReelItem[]>(contentStore.getReels());
+  const [reels, setReels] = useState<ReelItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [direction, setDirection] = useState<1 | -1>(1);
   const [isMuted, setIsMuted] = useState(true);
   const [isPlaying, setIsPlaying] = useState(true);
-  const [likes, setLikes] = useState<Record<string, { count: number; liked: boolean }>>({
-    'reel-neil-arora': { count: 142, liked: false },
-    'reel-leather-jacket': { count: 489, liked: false },
-    'reel-skater-motion': { count: 1250, liked: false },
-    'reel-neon-night': { count: 932, liked: false },
-  });
+  const [likes, setLikes] = useState<Record<string, { count: number; liked: boolean }>>({});
   const [bookmarks, setBookmarks] = useState<Record<string, boolean>>({});
   const [followed, setFollowed] = useState<Record<string, boolean>>({});
   const [notice, setNotice] = useState<string | null>(null);
@@ -49,14 +45,81 @@ export function ReelFeed() {
   const lastScrollTime = useRef<number>(0);
   const { triggerPulse } = useTopLoader();
 
-  // Load dynamic reels from backend
+  // Load dynamic reels strictly from backend database
   useEffect(() => {
     let active = true;
     async function loadReelsFromBackend() {
       try {
         const user = getCurrentUser();
         const posts = await fetchPosts({ kind: 'reel', viewer_id: user.id });
-        if (active && posts && posts.length > 0) {
+        if (active) {
+          if (posts && posts.length > 0) {
+            const mapped: ReelItem[] = posts.map((p) => ({
+              id: p.id,
+              title: p.title,
+              description: p.description,
+              video_url:
+                p.media_urls.find(
+                  (m) =>
+                    m.endsWith('.mp4') ||
+                    m.endsWith('.webm') ||
+                    m.includes('reel') ||
+                    m.includes('video')
+                ) ||
+                p.media_urls[0] ||
+                '/media/reel-1.mp4',
+              poster_url:
+                p.poster_url ||
+                p.media_urls[0] ||
+                'https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?auto=format&fit=crop&w=800&q=80',
+              creator: {
+                id: p.profiles?.id || p.author_id,
+                name: p.profiles?.display_name || 'Creator',
+                username: p.profiles?.username || 'creator',
+                avatar:
+                  p.profiles?.avatar_url ||
+                  'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=120&q=80',
+                initial: (p.profiles?.display_name || 'C')[0],
+                role: p.profiles?.role || 'Creator',
+              },
+              likes: p.like_count ?? 0,
+              comments: p.comment_count ?? 0,
+              shares: 24,
+              views: p.views ?? 0,
+              duration: p.duration || '0:30',
+            }));
+
+            setReels(mapped);
+
+            const initLikes: Record<string, { count: number; liked: boolean }> = {};
+            const initSaves: Record<string, boolean> = {};
+            posts.forEach((p) => {
+              initLikes[p.id] = { count: p.like_count || 0, liked: !!p.liked };
+              if (p.saved) initSaves[p.id] = true;
+            });
+            setLikes(initLikes);
+            setBookmarks(initSaves);
+          } else {
+            setReels([]);
+          }
+        }
+      } catch (err) {
+        console.warn('Reels backend fetch error:', err);
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+    loadReelsFromBackend();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      const user = getCurrentUser();
+      fetchPosts({ kind: 'reel', viewer_id: user.id }).then((posts) => {
+        if (posts && posts.length > 0) {
           const mapped: ReelItem[] = posts.map((p) => ({
             id: p.id,
             title: p.title,
@@ -76,6 +139,7 @@ export function ReelFeed() {
               p.media_urls[0] ||
               'https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?auto=format&fit=crop&w=800&q=80',
             creator: {
+              id: p.profiles?.id || p.author_id,
               name: p.profiles?.display_name || 'Creator',
               username: p.profiles?.username || 'creator',
               avatar:
@@ -84,51 +148,24 @@ export function ReelFeed() {
               initial: (p.profiles?.display_name || 'C')[0],
               role: p.profiles?.role || 'Creator',
             },
-            likes: p.like_count || 120,
-            comments: p.comment_count || 12,
+            likes: p.like_count ?? 0,
+            comments: p.comment_count ?? 0,
             shares: 24,
-            views: p.views || 1000,
-            duration: '0:30',
+            views: p.views ?? 0,
+            duration: p.duration || '0:30',
           }));
-
-          const storeReels = contentStore.getReels();
-          const merged = [...mapped];
-          storeReels.forEach((sr) => {
-            if (!merged.some((m) => m.id === sr.id)) merged.push(sr);
-          });
-          setReels(merged);
-
-          const initLikes: Record<string, { count: number; liked: boolean }> = {};
-          const initSaves: Record<string, boolean> = {};
-          posts.forEach((p) => {
-            initLikes[p.id] = { count: p.like_count || 0, liked: !!p.liked };
-            if (p.saved) initSaves[p.id] = true;
-          });
-          setLikes((prev) => ({ ...prev, ...initLikes }));
-          setBookmarks((prev) => ({ ...prev, ...initSaves }));
+          setReels(mapped);
         }
-      } catch (err) {
-        console.warn('Reels backend fetch warning:', err);
-      }
-    }
-    loadReelsFromBackend();
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    const handleUpdate = () => {
-      setReels(contentStore.getReels());
+      });
     };
     window.addEventListener(CONTENT_UPDATED_EVENT, handleUpdate);
     return () => window.removeEventListener(CONTENT_UPDATED_EVENT, handleUpdate);
   }, []);
 
-  const currentReel: ReelItem = reels[currentIndex] || reels[0];
-  const currentLikeState = likes[currentReel.id] || { count: currentReel.likes, liked: false };
-  const isBookmarked = !!bookmarks[currentReel.id];
-  const isFollowing = !!followed[currentReel.creator.username];
+  const currentReel: ReelItem | undefined = reels[currentIndex] || reels[0];
+  const currentLikeState = currentReel ? likes[currentReel.id] || { count: currentReel.likes, liked: false } : { count: 0, liked: false };
+  const isBookmarked = currentReel ? !!bookmarks[currentReel.id] : false;
+  const isFollowing = currentReel ? !!followed[currentReel.creator.username] : false;
 
   const handleNextReel = useCallback(() => {
     if (currentIndex < reels.length - 1) {
@@ -282,7 +319,7 @@ export function ReelFeed() {
     setTimeout(() => setNotice(null), 2000);
 
     try {
-      await toggleFollowApi(user.id, currentReel.creator.username);
+      await toggleFollowApi(user.id, currentReel.creator.id || currentReel.creator.username);
     } catch {}
   };
 
@@ -295,6 +332,25 @@ export function ReelFeed() {
       setTimeout(() => setNotice(null), 2500);
     }
   };
+
+  if (loading) {
+    return (
+      <div className="reel-feed-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', background: '#000' }}>
+        <div style={{ color: '#00a8ed', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+          <div style={{ width: 32, height: 32, borderRadius: '50%', border: '3px solid rgba(0,168,237,0.2)', borderTopColor: '#00a8ed', animation: 'spin 0.8s linear infinite' }} />
+          <span style={{ fontSize: 13, letterSpacing: '0.04em', color: '#94a3b8' }}>Loading Reels from Database...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!currentReel) {
+    return (
+      <div className="reel-feed-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', background: '#000' }}>
+        <p style={{ color: '#94a3b8', fontSize: 14 }}>No reels in database yet.</p>
+      </div>
+    );
+  }
 
   return (
     <div
