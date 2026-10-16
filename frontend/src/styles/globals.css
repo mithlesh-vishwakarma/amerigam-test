@@ -445,55 +445,238 @@ a {
     grid-template-columns: 220px minmax(0, 1fr) 280px;
   }
   .search-wrap {
-    width: 320px;
+    width: 300px;
   }
 }
 
 @media (max-width: 900px) {
   html, body {
-    overflow: auto;
+    overflow-x: hidden;
+    overflow-y: auto;
   }
+
+  .app-shell {
+    height: auto;
+    min-height: 100vh;
+  }
+
   .topbar {
-    padding: 0 16px;
+    padding: 0 12px;
+    height: 50px;
+    gap: 8px;
   }
-  .search-wrap,
-  .right-rail,
-  .left-nav {
-    display: none;
+
+  .brand-container {
+    flex-shrink: 0;
   }
+
+  /* Compact responsive search bar */
+  .search-wrap {
+    flex: 1;
+    min-width: 0;
+    max-width: none;
+    width: auto;
+    height: 34px;
+    padding: 0 10px;
+    gap: 6px;
+  }
+
+  .search-wrap input {
+    font-size: 12px;
+  }
+
+  .top-actions {
+    gap: 4px;
+  }
+
+  .action-icon-btn {
+    width: 32px;
+    height: 32px;
+  }
+
+  /* Hide left nav and right rail on mobile/tablet */
+  .left-nav,
+  .right-rail {
+    display: none !important;
+  }
+
   .app-body {
     display: block;
     height: auto;
     overflow: visible;
   }
+
   .main-content {
     height: auto;
     overflow: visible;
-    padding: 20px 16px 85px;
+    padding: 14px 12px 100px;
   }
+
   .home-grid {
     grid-template-columns: 1fr;
     gap: 16px;
   }
+
   .home-grid > .post-card {
     grid-column: span 1;
   }
+
   .media-card {
-    height: 300px;
-  }
-  .mobile-nav {
-    display: flex;
-    position: fixed;
-    bottom: 12px;
-    left: 50%;
-    transform: translateX(-50%);
-    gap: 24px;
-    padding: 10px 20px;
-    background: rgba(18, 19, 23, 0.95);
-    backdrop-filter: blur(12px);
-    border: 1px solid #333640;
-    border-radius: 24px;
-    z-index: 100;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+    height: 280px;
   }
 }
+
+@media (max-width: 480px) {
+  .top-actions .action-icon-btn:nth-child(1),
+  .top-actions .action-icon-btn:nth-child(2) {
+    display: none;
+  }
+}
+
+/* =========================================
+   MOBILE HAMBURGER & SLIDE-OVER DRAWER
+   ========================================= */
+.mobile-hamburger-btn {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .mobile-hamburger-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: transparent;
+    border: 0;
+    color: #e5e5eb;
+    cursor: pointer;
+    padding: 0;
+    margin-right: 8px;
+    transition: color 0.18s ease;
+  }
+
+  .mobile-hamburger-btn:hover {
+    color: #fff;
+  }
+}
+
+.mobile-drawer-root {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+}
+
+.mobile-drawer-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(8px);
+}
+
+.mobile-drawer-panel {
+  position: relative;
+  width: 280px;
+  max-width: 82vw;
+  height: 100%;
+  background: #111216;
+  border-right: 1px solid #23252d;
+  display: flex;
+  flex-direction: column;
+  z-index: 10;
+  padding: 18px 14px;
+  box-shadow: 12px 0 35px rgba(0, 0, 0, 0.8);
+  overflow-y: auto;
+}
+
+.mobile-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #1f2026;
+  margin-bottom: 14px;
+}
+
+.mobile-drawer-close {
+  background: rgba(255, 255, 255, 0.08);
+  border: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  color: #bbb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.mobile-drawer-close:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.mobile-drawer-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.mobile-drawer-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  color: #a4a5b0;
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: all 0.16s ease;
+}
+
+.mobile-drawer-item:hover,
+.mobile-drawer-item.active {
+  background: #191b22;
+  color: #fff;
+  font-weight: 600;
+}
+
+.mobile-drawer-item.active {
+  border-left: 3px solid #00a8ed;
+}
+
+.mobile-drawer-footer {
+  margin-top: auto;
+  padding-top: 14px;
+  border-top: 1px solid #1f2026;
+}
+
+.drawer-user-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.drawer-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.drawer-user-info b {
+  font-size: 13px;
+  color: #fff;
+  display: block;
+}
+
+.drawer-user-info small {
+  font-size: 10.5px;
+  color: #8e8e98;
+}
+

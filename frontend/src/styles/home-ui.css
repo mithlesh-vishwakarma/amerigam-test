@@ -1,12 +1,16 @@
 /* Small Tabs for Filters */
 .feed-filters {
   display: inline-flex;
+  align-self: flex-start;
+  width: fit-content;
+  max-width: 100%;
   gap: 6px;
-  margin: 0 0 20px 0;
+  margin: 0 0 14px 0;
   background: #141518;
   padding: 4px;
   border-radius: 24px;
   border: 1px solid #26272e;
+  box-sizing: border-box;
 }
 
 .filter-tab {
@@ -373,6 +377,67 @@
   background: #3a3b44;
   margin: 16px auto 0;
 }
+
+/* Self Profile Community Circles */
+.profile-communities-circles {
+  display: flex;
+  flex-direction: column;
+  margin-top: 14px;
+}
+
+.communities-circle-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.community-circle-link {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1.5px solid transparent;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+  background: #20222a;
+}
+
+.community-circle-link img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.community-circle-link:hover {
+  border-color: #00a8ed;
+  transform: scale(1.08);
+}
+
+.community-circle-btn.chevron-circle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #0d0e11;
+  border: 1px solid #2e303a;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.18s ease;
+}
+
+.community-circle-btn.chevron-circle:hover {
+  background: #1c1d25;
+  border-color: #00a8ed;
+}
+
 
 /* Friends Section - Intact & Clickable */
 .friends-list {
@@ -1202,12 +1267,21 @@
 /* =========================================
    LEFT SIDEBAR BOTTOM ANCHOR
    ========================================= */
-.left-nav {
-  display: flex !important;
-  flex-direction: column !important;
-  justify-content: space-between !important;
-  height: 100% !important;
-  box-sizing: border-box !important;
+@media (min-width: 901px) {
+  .left-nav {
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+    height: 100% !important;
+    box-sizing: border-box !important;
+  }
+}
+
+@media (max-width: 900px) {
+  .left-nav,
+  .right-rail {
+    display: none !important;
+  }
 }
 
 .left-nav-top {
@@ -1221,31 +1295,87 @@
 }
 
 /* =========================================
-   FLOATING PILL NAVIGATION (Screenshot Exact)
+   FLOATING PILL NAVIGATION (Centered Perfectly)
    ========================================= */
-.floating-pill-wrapper {
+.floating-pill-root {
   position: fixed;
   bottom: 22px;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
   z-index: 999;
+  pointer-events: none;
+}
+
+.floating-pill-wrapper {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 14px;
   pointer-events: auto;
   user-select: none;
+  margin: 0 auto;
 }
 
 .floating-pill-bar {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 14px;
   background: rgba(16, 17, 21, 0.95);
   backdrop-filter: blur(18px);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 9999px;
-  padding: 5px 12px;
+  padding: 6px 18px;
   box-shadow: 0 12px 35px rgba(0, 0, 0, 0.75);
+}
+
+.floating-pill-hide-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #9ea0aa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.floating-pill-hide-btn:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.35);
+  transform: translateY(1px);
+}
+
+.floating-pill-show-btn {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: rgba(16, 17, 21, 0.92);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 9999px;
+  padding: 7px 18px;
+  color: #cbd5e1;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.7);
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.floating-pill-show-btn:hover {
+  background: #1c1d25;
+  color: #fff;
+  border-color: #00a8ed;
+  box-shadow: 0 10px 30px rgba(0, 168, 237, 0.25);
 }
 
 .floating-pill-item {
@@ -1344,4 +1474,432 @@
     display: block;
   }
 }
+
+/* ========================================================
+   HOME FEED HORIZONTAL REELS & POSTS STYLES
+   ======================================================== */
+.home-dashboard-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  width: 100%;
+  max-width: 100%;
+  padding-bottom: 30px;
+}
+
+.home-reels-section {
+  width: 100%;
+}
+
+.reels-horizontal-track {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding: 2px 2px 10px 2px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.reels-horizontal-track::-webkit-scrollbar {
+  display: none;
+}
+
+.home-reel-card {
+  flex: 0 0 210px;
+  width: 210px;
+  height: 340px;
+  border-radius: 18px;
+  background-size: cover;
+  background-position: center;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 16px;
+  cursor: pointer;
+  text-decoration: none;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: transform 0.22s ease, border-color 0.22s ease;
+  user-select: none;
+}
+
+.home-reel-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.reel-badge-top-left {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(14, 14, 18, 0.8);
+  backdrop-filter: blur(8px);
+  padding: 3px 10px 3px 3px;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.reel-badge-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.reel-badge-handle {
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.home-card-scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.05) 0%, rgba(0, 0, 0, 0.25) 45%, rgba(0, 0, 0, 0.9) 100%);
+  pointer-events: none;
+}
+
+.home-card-content {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.home-card-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0;
+  line-height: 1.3;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+}
+
+.home-card-handle {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.75);
+  margin: 0;
+}
+
+.home-card-views {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10.5px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.88);
+  margin-top: 3px;
+}
+
+/* Lower Section: Split Grid */
+.home-lower-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.home-main-post-card {
+  background: #141518;
+  border: 1px solid #26272e;
+  border-radius: 18px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.post-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.post-author-box {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.post-author-gradient-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  padding: 2px;
+  background: linear-gradient(135deg, #f59e0b, #ec4899, #8b5cf6);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.post-author-gradient-avatar img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.post-author-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.author-handle {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.author-role {
+  font-size: 10.5px;
+  color: #8c8c97;
+  margin-top: 1px;
+}
+
+.post-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.post-follow-pill {
+  background: #0077b6;
+  color: #fff;
+  border: 0;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 16px;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.post-follow-pill:hover {
+  background: #008cd6;
+}
+
+.post-follow-pill.is-following {
+  background: #23252d;
+  color: #cbd5e1;
+  border: 1px solid #363842;
+}
+
+.post-dots-btn {
+  background: transparent;
+  border: 0;
+  color: #8c8c97;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+}
+
+.post-caption-box {
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: #c9cad2;
+}
+
+.post-caption-p {
+  margin: 0;
+}
+
+.caption-more-link {
+  background: none;
+  border: 0;
+  color: #8c8c97;
+  font-size: 12.5px;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.caption-more-link:hover {
+  color: #fff;
+}
+
+.post-horizontal-carousel {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.post-horizontal-carousel::-webkit-scrollbar {
+  display: none;
+}
+
+.post-slide-card {
+  flex: 0 0 185px;
+  width: 185px;
+  height: 270px;
+  border-radius: 14px;
+  background-size: cover;
+  background-position: center;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.home-side-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.side-stack-card {
+  width: 100%;
+  height: 175px;
+  border-radius: 16px;
+  background-size: cover;
+  background-position: center;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* ========================================================
+   RESPONSIVE MOBILE STYLES FOR HOME & REELS
+   ======================================================== */
+@media (max-width: 860px) {
+  .home-lower-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .home-side-stack {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+  }
+}
+
+@media (max-width: 600px) {
+  .home-dashboard-layout {
+    gap: 18px;
+    padding-bottom: 20px;
+  }
+
+  /* Compact touch reels on mobile */
+  .home-reel-card {
+    flex: 0 0 170px;
+    width: 170px;
+    height: 275px;
+    padding: 12px;
+    border-radius: 16px;
+  }
+
+  .home-card-title {
+    font-size: 12.5px;
+  }
+
+  .home-card-handle {
+    font-size: 10px;
+  }
+
+  .home-card-views {
+    font-size: 10px;
+  }
+
+  /* Compact post cards on mobile */
+  .home-main-post-card {
+    padding: 14px;
+    border-radius: 16px;
+  }
+
+  .post-slide-card {
+    flex: 0 0 160px;
+    width: 160px;
+    height: 240px;
+    padding: 12px;
+    border-radius: 12px;
+  }
+
+  .side-stack-card {
+    height: 155px;
+    border-radius: 14px;
+  }
+
+  /* Smooth horizontal touch scroll */
+  .reels-horizontal-track,
+  .post-horizontal-carousel,
+  .stories {
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
+  }
+
+  .home-reel-card,
+  .post-slide-card,
+  .story-card {
+    scroll-snap-align: start;
+  }
+
+  /* Compact Floating Pill Menu on Mobile Screen */
+  .floating-pill-root {
+    bottom: 14px;
+  }
+
+  .floating-pill-wrapper {
+    gap: 8px;
+    max-width: calc(100vw - 16px);
+  }
+
+  .floating-pill-bar {
+    gap: 8px;
+    padding: 4px 10px;
+  }
+
+  .floating-pill-item {
+    width: 36px;
+    height: 36px;
+  }
+
+  .squircle-icon-box {
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+  }
+
+  .squircle-outer-border {
+    width: 18px;
+    height: 18px;
+  }
+
+  .floating-avatar-circle {
+    width: 36px;
+    height: 36px;
+  }
+
+  .floating-pill-hide-btn {
+    width: 34px;
+    height: 34px;
+  }
+
+  .floating-pill-show-btn {
+    bottom: 14px;
+    padding: 6px 14px;
+    font-size: 11px;
+  }
+}
+
+
 

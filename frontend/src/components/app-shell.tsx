@@ -15,12 +15,38 @@ import {
   Trophy,
   Sparkles,
   ChevronRight,
+  ChevronUp,
   UserCheck,
   UserPlus,
+  Menu,
+  X,
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { InteractiveLogo } from './interactive-logo';
 import { useTopLoader } from './top-loader';
-import { FloatingPillNav } from './floating-pill-nav';
+
+const communityCircles = [
+  {
+    id: 'comm-1',
+    name: 'Designers & 3D Crafters',
+    avatar: 'https://images.unsplash.com/photo-1541701494587-cb58502866ab?auto=format&fit=crop&w=80&q=80',
+  },
+  {
+    id: 'comm-2',
+    name: 'Indie Cinema & Filmmakers',
+    avatar: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=80&q=80',
+  },
+  {
+    id: 'comm-3',
+    name: 'Creative Tech & Code',
+    avatar: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=80&q=80',
+  },
+  {
+    id: 'comm-4',
+    name: 'AI Art & Media',
+    avatar: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=80&q=80',
+  },
+];
 
 const nav = [
   ['Home', '/home', Home],
@@ -100,6 +126,7 @@ export function AppShell({
   right?: boolean;
   isReelFeed?: boolean;
 }) {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
   const path = location.pathname;
   const navigate = useNavigate();
@@ -124,9 +151,120 @@ export function AppShell({
 
   return (
     <div className={`app-shell ${isFeedMode ? 'is-reel-page' : ''}`}>
+      {/* Mobile Navigation Drawer */}
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <div className="mobile-drawer-root">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="mobile-drawer-backdrop"
+              onClick={() => setMobileMenuOpen(false)}
+            />
+            <motion.aside
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+              className="mobile-drawer-panel"
+            >
+              <div className="mobile-drawer-header">
+                <InteractiveLogo size="sm" />
+                <button
+                  type="button"
+                  className="mobile-drawer-close"
+                  onClick={() => setMobileMenuOpen(false)}
+                  aria-label="Close menu"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <nav className="mobile-drawer-nav">
+                {nav.map(([label, href, I]) => (
+                  <Link
+                    key={href}
+                    className={`mobile-drawer-item ${path === href ? 'active' : ''}`}
+                    to={href}
+                    onClick={() => {
+                      handleNavClick(href);
+                      setMobileMenuOpen(false);
+                    }}
+                  >
+                    <I size={20} strokeWidth={1.8} />
+                    <span>{label}</span>
+                  </Link>
+                ))}
+
+                <div className="nav-divider" />
+
+                <Link
+                  className="mobile-drawer-item"
+                  to="/search?tab=communities"
+                  onClick={() => {
+                    handleNavClick('/search?tab=communities');
+                    setMobileMenuOpen(false);
+                  }}
+                >
+                  <Globe size={20} strokeWidth={1.8} />
+                  <span>Communities</span>
+                </Link>
+
+                <Link
+                  className="mobile-drawer-item"
+                  to="/search?tab=network"
+                  onClick={() => {
+                    handleNavClick('/search?tab=network');
+                    setMobileMenuOpen(false);
+                  }}
+                >
+                  <Network size={20} strokeWidth={1.8} />
+                  <span>Network</span>
+                </Link>
+
+                <Link
+                  className="mobile-drawer-item"
+                  to="/settings"
+                  onClick={() => {
+                    handleNavClick('/settings');
+                    setMobileMenuOpen(false);
+                  }}
+                >
+                  <Settings size={20} strokeWidth={1.8} />
+                  <span>Settings</span>
+                </Link>
+              </nav>
+
+              <div className="mobile-drawer-footer">
+                <div className="drawer-user-row">
+                  <img
+                    src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=80&q=80"
+                    alt="Profile"
+                    className="drawer-avatar"
+                  />
+                  <div className="drawer-user-info">
+                    <b>Editor</b>
+                    <small>Rank #17 · Rating 5.0</small>
+                  </div>
+                </div>
+              </div>
+            </motion.aside>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Fixed topbar with proper padding, increased search length, and matched icons */}
       <header className="topbar">
         <div className="brand brand-container">
+          <button
+            type="button"
+            className="mobile-hamburger-btn"
+            onClick={() => setMobileMenuOpen(true)}
+            aria-label="Open navigation menu"
+          >
+            <Menu size={22} strokeWidth={1.8} />
+          </button>
           <InteractiveLogo size="md" />
         </div>
 
@@ -247,11 +385,6 @@ export function AppShell({
         {/* Right column - independently scrollable (hidden on reel feed mode) */}
         {!isFeedMode && right && <RightRail />}
       </div>
-
-      {/* Floating pill navigation visible on mobile or when on feed */}
-      <div className="mobile-only-pill">
-        <FloatingPillNav />
-      </div>
     </div>
   );
 }
@@ -303,45 +436,41 @@ function RightRail() {
           </div>
         </div>
 
-        {/* Communities Section - Profiles Shown & Clickable */}
-        <div className="panel-heading">
-          <b>Your Communities</b>
-          <Link to="/search?tab=communities" onClick={() => triggerPulse()} className="explore-link">
-            <Compass size={14} strokeWidth={1.8} />
-            <span>Explore</span>
-            <ChevronRight size={13} strokeWidth={2} />
-          </Link>
-        </div>
+        {/* Communities Section - Displayed in Circles */}
+        <div className="profile-communities-circles">
+          <div className="panel-heading" style={{ marginBottom: '10px' }}>
+            <b>Your Communities</b>
+            <Link to="/search?tab=communities" onClick={() => triggerPulse()} className="explore-link">
+              <Compass size={14} strokeWidth={1.8} />
+              <span>Explore</span>
+              <ChevronRight size={13} strokeWidth={2} />
+            </Link>
+          </div>
 
-        <div className="communities-list" role="list">
-          {communityProfiles.map((comm) => {
-            const isJoined = joinedCommunities[comm.id];
-            return (
+          <div className="communities-circle-row" role="list">
+            {communityCircles.map((comm) => (
               <Link
                 key={comm.id}
-                to={`/search?q=${encodeURIComponent(comm.query)}`}
+                to="/search?tab=communities"
                 onClick={() => triggerPulse()}
-                className="community-profile-card"
-                role="listitem"
+                className="community-circle-link"
+                title={comm.name}
               >
-                <div className="community-avatar-wrap">
-                  <span className="community-icon-badge">{comm.icon}</span>
-                </div>
-                <div className="community-meta">
-                  <span className="community-title">{comm.name}</span>
-                  <small className="community-subtitle">{comm.tag}</small>
-                </div>
-                <button
-                  type="button"
-                  aria-label={isJoined ? `Joined ${comm.name}` : `Join ${comm.name}`}
-                  className={`community-join-pill ${isJoined ? 'joined' : ''}`}
-                  onClick={(e) => toggleCommunity(comm.id, e)}
-                >
-                  {isJoined ? 'Joined' : '+ Join'}
-                </button>
+                <img src={comm.avatar} alt={comm.name} />
               </Link>
-            );
-          })}
+            ))}
+
+            {/* Right arrow key/button to see more communities */}
+            <Link
+              to="/search?tab=communities"
+              onClick={() => triggerPulse()}
+              className="community-circle-btn chevron-circle"
+              aria-label="See more communities"
+              title="See more communities"
+            >
+              <ChevronRight size={16} strokeWidth={2.5} />
+            </Link>
+          </div>
         </div>
 
         <div className="rail-handle" />
