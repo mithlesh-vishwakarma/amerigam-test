@@ -67,8 +67,26 @@ app.use(
 // ============================================================================
 // SYSTEM & DOCS
 // ============================================================================
+app.get('/', (_req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'AMERIGAM API is running',
+    status: 'healthy',
+  });
+});
+
+app.get('/api', (_req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'AMERIGAM API is running',
+    docs: '/api/docs',
+    status: 'healthy',
+  });
+});
+
 app.get('/api/health', (_req, res) => {
-  res.json({
+  res.status(200).json({
+    success: true,
     status: 'ok',
     service: 'amerigam-backend',
     timestamp: new Date().toISOString(),

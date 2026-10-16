@@ -8,11 +8,6 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- Clean existing tables if needed (safe re-run)
-DROP TRIGGER IF EXISTS trg_post_like_count ON post_likes CASCADE;
-DROP TRIGGER IF EXISTS trg_post_comment_count ON post_comments CASCADE;
-DROP FUNCTION IF EXISTS update_post_like_count CASCADE;
-DROP FUNCTION IF EXISTS update_post_comment_count CASCADE;
-
 DROP TABLE IF EXISTS post_comments CASCADE;
 DROP TABLE IF EXISTS post_likes CASCADE;
 DROP TABLE IF EXISTS post_saves CASCADE;
@@ -22,6 +17,11 @@ DROP TABLE IF EXISTS community_members CASCADE;
 DROP TABLE IF EXISTS communities CASCADE;
 DROP TABLE IF EXISTS follows CASCADE;
 DROP TABLE IF EXISTS profiles CASCADE;
+
+-- The functions may remain when this is a re-run, so remove them separately.
+-- Do not drop triggers explicitly: PostgreSQL errors if their table is absent.
+DROP FUNCTION IF EXISTS update_post_like_count() CASCADE;
+DROP FUNCTION IF EXISTS update_post_comment_count() CASCADE;
 
 -- ============================================================================
 -- 2. TABLE DEFINITIONS

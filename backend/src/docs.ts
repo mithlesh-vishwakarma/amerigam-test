@@ -219,6 +219,7 @@ export function getApiDocsHtml(): string {
     <div class="brand-sub">REST Endpoints & Documentation</div>
 
     <div class="nav-group-title">System</div>
+    <a href="#root" class="nav-link"><span class="method-tag get">GET</span> /</a>
     <a href="#health" class="nav-link"><span class="method-tag get">GET</span> /api/health</a>
     <a href="#docs" class="nav-link"><span class="method-tag get">GET</span> /api/docs</a>
 
@@ -255,6 +256,27 @@ export function getApiDocsHtml(): string {
       <div class="status-badge">
         <span class="status-dot"></span>
         API Online & Ready · Port 5000
+      </div>
+    </div>
+
+    <!-- SYSTEM -->
+    <h2 class="section-title">System & Health API</h2>
+
+    <div class="endpoint-card" id="root">
+      <div class="endpoint-header">
+        <div class="endpoint-left">
+          <span class="method-tag get">GET</span>
+          <span>/</span>
+        </div>
+        <p class="endpoint-desc">Root Health Ping for Render & Deployment Monitoring</p>
+        <button class="try-btn" onclick="testEndpoint('/', 'res-root')">Try Endpoint</button>
+      </div>
+      <div class="endpoint-body">
+        <p style="font-size:13px; color:#cbd5e1;">Returns immediate HTTP 200 with service health status for zero-downtime platform health probes.</p>
+        <div class="response-preview" id="res-root">
+          <div class="response-header">Live Server Response:</div>
+          <pre><code>Loading...</code></pre>
+        </div>
       </div>
     </div>
 
