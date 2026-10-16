@@ -1,0 +1,595 @@
+/* Small Tabs for Filters */
+.feed-filters {
+  display: inline-flex;
+  gap: 6px;
+  margin: 0 0 20px 0;
+  background: #141518;
+  padding: 4px;
+  border-radius: 24px;
+  border: 1px solid #26272e;
+}
+
+.filter-tab {
+  position: relative;
+  padding: 6px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 20px;
+  border: 0;
+  background: transparent;
+  color: #8c8c97;
+  cursor: pointer;
+  transition: color 0.18s ease;
+  user-select: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.filter-tab:hover {
+  color: #fff;
+}
+
+.filter-tab.selected {
+  color: #38bdf8;
+  font-weight: 600;
+}
+
+.filter-tab-indicator {
+  position: absolute;
+  inset: 0;
+  border-radius: 20px;
+  background: #001f30;
+  border: 1px solid rgba(0, 168, 237, 0.45);
+  box-shadow: 0 0 10px rgba(0, 168, 237, 0.22);
+  z-index: 0;
+}
+
+.filter-tab-label {
+  position: relative;
+  z-index: 1;
+}
+
+/* Stories & Find Friends - Compact Smaller Cards */
+.stories {
+  display: flex;
+  gap: 12px;
+  margin: 0 0 24px 0;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  scrollbar-width: thin;
+}
+
+.stories::-webkit-scrollbar {
+  height: 4px;
+}
+
+.stories::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+.story-card {
+  width: 118px;
+  min-width: 118px;
+  height: 168px;
+  border-radius: 18px;
+  border: 1px solid #282a30;
+  background: #15161a;
+  color: #f3f3f4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  padding: 12px 6px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  user-select: none;
+}
+
+.story-card:hover {
+  border-color: #00a8ed;
+  box-shadow: 0 6px 20px rgba(0, 168, 237, 0.15);
+}
+
+.story-card b {
+  font-size: 12px;
+  margin-top: 10px;
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 104px;
+  display: block;
+}
+
+.story-card small {
+  color: #84848e;
+  font-size: 10px;
+  margin-top: 3px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 104px;
+  display: block;
+}
+
+.add-story {
+  border-style: dashed;
+  border-color: #353840;
+}
+
+.add-story:hover {
+  border-style: dashed;
+  border-color: #00a8ed;
+}
+
+.story-avatar {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.story-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.story-avatar i {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 20px;
+  height: 20px;
+  background: #00a8ed;
+  border: 2px solid #15161a;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.story-avatar.has-ring {
+  padding: 2.5px;
+  background: linear-gradient(140deg, #fd5c53, #ffca56, #15c8dc);
+}
+
+.friend-icon {
+  background: #001f30;
+  color: #00a8ed;
+  border-radius: 50%;
+  width: 46px;
+  height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.find-friends.is-following .friend-icon {
+  background: #003623;
+  color: #00e599;
+}
+
+/* Right Section - Responsive Width & Padding */
+.right-rail {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.profile-box,
+.friend-box {
+  border: 1px solid #27282e;
+  background: #141518;
+  border-radius: 20px;
+  padding: 18px 16px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.profile-summary {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.profile-photo {
+  height: 52px;
+  width: 52px;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 0 0 2px #ff7666, 0 0 16px rgba(202, 72, 116, 0.4);
+  flex-shrink: 0;
+}
+
+.profile-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.profile-role {
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  display: block;
+}
+
+.stats {
+  display: flex;
+  gap: 16px;
+  margin-top: 6px;
+}
+
+.stats span {
+  display: flex;
+  flex-direction: column;
+  text-align: center;
+}
+
+.stats strong {
+  font-size: 13px;
+  color: #f1f1f5;
+}
+
+.stats small {
+  font-size: 10px;
+  color: #8c8c97;
+}
+
+.panel-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 18px 0 12px;
+}
+
+.panel-heading b {
+  font-size: 13px;
+  font-weight: 700;
+  color: #ededf2;
+}
+
+.explore-link {
+  color: #00a8ed;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  transition: color 0.15s;
+}
+
+.explore-link:hover {
+  color: #38bdf8;
+}
+
+.online-badge-count {
+  font-size: 11px;
+  color: #00e599;
+  background: rgba(0, 229, 153, 0.1);
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+
+/* Clickable Communities Profile List */
+.communities-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.community-profile-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: #191a1e;
+  border: 1px solid #27282f;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  text-decoration: none;
+  color: inherit;
+}
+
+.community-profile-card:hover {
+  background: #202127;
+  border-color: #00a8ed;
+  transform: translateX(2px);
+}
+
+.community-avatar-wrap {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #252730;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.community-meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.community-title {
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #f1f1f5;
+}
+
+.community-subtitle {
+  font-size: 10px;
+  color: #8c8c97;
+  margin-top: 1px;
+}
+
+.community-join-pill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 12px;
+  border: 1px solid #363842;
+  background: #23252d;
+  color: #cbd5e1;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  flex-shrink: 0;
+}
+
+.community-join-pill:hover {
+  border-color: #00a8ed;
+  color: #fff;
+}
+
+.community-join-pill.joined {
+  background: #002233;
+  border-color: #00a8ed;
+  color: #38bdf8;
+}
+
+.rail-handle {
+  height: 4px;
+  width: 80px;
+  border-radius: 4px;
+  background: #3a3b44;
+  margin: 16px auto 0;
+}
+
+/* Friends Section - Intact & Clickable */
+.friends-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.friend-row {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 4px 0;
+}
+
+.online-avatar {
+  position: relative;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+}
+
+.online-avatar img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.online-indicator {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #00ba8b;
+  position: absolute;
+  right: 0;
+  bottom: 1px;
+  border: 2px solid #141518;
+}
+
+.friend-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.friend-info b {
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #f1f1f5;
+}
+
+.friend-info small {
+  font-size: 10px;
+  color: #8c8c97;
+  margin-top: 1px;
+}
+
+.friend-action-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid #333640;
+  background: #1c1d22;
+  color: #aaa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  flex-shrink: 0;
+}
+
+.friend-action-btn:hover {
+  border-color: #00a8ed;
+  color: #fff;
+  background: #001924;
+}
+
+.friend-action-btn.following {
+  background: #002233;
+  border-color: #00a8ed;
+  color: #38bdf8;
+}
+
+.expand-friends-btn {
+  width: 100%;
+  border: 1px solid #292a32;
+  background: #191a1e;
+  border-radius: 12px;
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #9da0aa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  margin-top: 12px;
+  transition: all 0.18s ease;
+}
+
+.expand-friends-btn:hover {
+  background: #212228;
+  color: #fff;
+  border-color: #3b3d47;
+}
+
+.expand-arrow {
+  font-size: 14px;
+  transition: transform 0.2s ease;
+}
+
+.expand-arrow.rotated {
+  transform: rotate(180deg);
+}
+
+/* Post Card Modern Polish */
+.post-card {
+  position: relative;
+  border-radius: 20px;
+  background: #141518;
+  border: 1px solid #26272e;
+  padding: 20px;
+}
+
+.post-card header .avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+}
+
+.post-menu {
+  position: absolute;
+  right: 20px;
+  top: 58px;
+  z-index: 20;
+  background: #1a1b20;
+  border: 1px solid #363842;
+  border-radius: 16px;
+  padding: 8px;
+  width: 280px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.6);
+}
+
+.post-menu button {
+  border: 0;
+  background: none;
+  color: #ededf0;
+  width: 100%;
+  display: flex;
+  gap: 12px;
+  text-align: left;
+  align-items: center;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.post-menu button:hover {
+  background: #252730;
+}
+
+.post-menu .danger {
+  color: #ff4d4f;
+}
+
+.media-carousel {
+  position: relative;
+  display: block;
+}
+
+.media-count {
+  position: absolute;
+  left: 14px;
+  top: 24px;
+  border-radius: 14px;
+  background: rgba(11, 11, 12, 0.85);
+  backdrop-filter: blur(8px);
+  color: #fff;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.next-media {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 0;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.next-media:hover {
+  background: rgba(0, 0, 0, 0.9);
+}
+
+.post-notice {
+  color: #00a8ed;
+  font-size: 12px;
+  margin: 10px 0 0;
+}
