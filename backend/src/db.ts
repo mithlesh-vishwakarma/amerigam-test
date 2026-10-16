@@ -109,6 +109,13 @@ export interface PostFilterParams {
   feed_type?: 'for_you' | 'communities' | 'network';
   viewer_id?: string;
   limit?: number;
+  offset?: number;
+}
+
+export interface CommunityFilterParams {
+  category?: string;
+  q?: string;
+  viewer_id?: string;
 }
 
 // ============================================================================
@@ -202,11 +209,21 @@ export async function toggleFollow(followerId: string, followingId: string): Pro
 // ============================================================================
 // COMMUNITIES (LIVE SUPABASE DATABASE)
 // ============================================================================
-export async function getCommunities(): Promise<CommunityRecord[]> {
-  const { data, error } = await supabase
+export async function getCommunities(filters?: CommunityFilterParams): Promise<CommunityRecord[]> {
+  let query = supabase
     .from('communities')
     .select('*')
     .order('created_at', { ascending: true });
+
+  if (filters?.category && filters.category !== 'All') {
+    query = query.ilike('category', `%${filters.category}%`);
+  }
+  if (filters?.q) {
+    const search = `%${filters.q.toLowerCase()}%`;
+    query = query.or(`name.ilike.${search},handle.ilike.${search},category.ilike.${search},description.ilike.${search}`);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     console.error('Supabase getCommunities error:', error.message);
@@ -294,7 +311,10 @@ export async function getPosts(filters?: PostFilterParams): Promise<any[]> {
 
   query = query.order('created_at', { ascending: false });
 
-  if (filters?.limit) {
+  if (filters?.offset !== undefined && filters.offset > 0) {
+    const limit = filters?.limit || 50;
+    query = query.range(filters.offset, filters.offset + limit - 1);
+  } else if (filters?.limit) {
     query = query.limit(filters.limit);
   }
 
