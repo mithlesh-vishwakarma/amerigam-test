@@ -1,0 +1,10 @@
+{
+  "name": "amerigam-assessment",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node --test test/api.test.js"
+  }
+}
