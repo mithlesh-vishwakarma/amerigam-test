@@ -20,6 +20,9 @@ import {
   Ban,
   UploadCloud,
   CheckCircle2,
+  Briefcase,
+  Heart,
+  Megaphone,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AppShell } from '@/components/app-shell';
@@ -33,6 +36,19 @@ interface CreatePageProps {
 }
 
 const EMOJI_LIST = ['😊', '🔥', '✨', '🎬', '📸', '🚀', '❤️', '🎨', '⚡', '🙌', '💯', '🎧'];
+
+const SUGGESTED_HOBBIES = [
+  'Gaming',
+  'Cinema & Film',
+  'Photography',
+  'Music Production',
+  'Fitness & Marathons',
+  'Travel & Culture',
+  'Chess & Strategy',
+  'Literature & Books',
+  'Art & Sketching',
+  'Tech Gadgets',
+];
 
 const POPULAR_LOCATIONS = [
   'Tokyo, Japan',
@@ -86,6 +102,14 @@ export function CreatePage({ defaultKind }: CreatePageProps) {
   // Story-specific styling
   const [storyTextOverlay, setStoryTextOverlay] = useState('');
   const [storyFilter, setStoryFilter] = useState('none');
+
+  // Feed Distribution Category (70% Field, 20% Hobby, 10% Ad)
+  const [postType, setPostType] = useState<'field' | 'hobby' | 'ad'>('field');
+  const [hobbyTag, setHobbyTag] = useState<string>('Gaming');
+  const [customHobby, setCustomHobby] = useState<string>('');
+  const [sponsorName, setSponsorName] = useState<string>('Sony Alpha');
+  const [adCtaLabel, setAdCtaLabel] = useState<string>('Explore Now');
+  const [adCtaUrl, setAdCtaUrl] = useState<string>('https://amerigam.com');
 
   // UI state
   const [busy, setBusy] = useState(false);
@@ -164,7 +188,10 @@ export function CreatePage({ defaultKind }: CreatePageProps) {
           uploadedUrl = uploadRes.url;
         } catch (uploadErr: any) {
           console.warn('Backend file upload warning:', uploadErr);
-          // Keep preview URL as fallback if backend is unreachable
+          setError('Failed to upload media file: ' + (uploadErr?.message || 'Server error. Please ensure backend is running.'));
+          setBusy(false);
+          setToastMessage(null);
+          return;
         }
       }
 
@@ -191,8 +218,10 @@ export function CreatePage({ defaultKind }: CreatePageProps) {
       } else if (kind === 'reel') {
         // STRICT REQUIREMENT: Posts to Reels Section!
         const videoUrl = uploadedUrl || preview || '/media/reel-1.mp4';
+        const resolvedHobby = customHobby.trim() || hobbyTag || 'Gaming';
+        const isAd = postType === 'ad';
 
-        // Save directly to Live Supabase Database
+        // Save directly to Live Supabase Database with 70/20/10 metadata
         await createPostApi({
           author_id: activeUser.id,
           title,
@@ -204,6 +233,13 @@ export function CreatePage({ defaultKind }: CreatePageProps) {
           collaborators,
           is_ai_labeled: aiLabel,
           hide_stats: hideStats,
+          post_type: postType,
+          field_tag: postType === 'field' ? activeUser.role : undefined,
+          hobby_tag: postType === 'hobby' ? resolvedHobby : undefined,
+          is_ad: isAd,
+          sponsor_name: isAd ? (sponsorName.trim() || 'Partner') : undefined,
+          ad_cta_label: isAd ? (adCtaLabel.trim() || 'Learn More') : undefined,
+          ad_cta_url: isAd ? (adCtaUrl.trim() || 'https://amerigam.com') : undefined,
         });
 
         notifyContentUpdated();
@@ -221,7 +257,10 @@ export function CreatePage({ defaultKind }: CreatePageProps) {
           ? ['https://images.unsplash.com/photo-1499750310107-5fef28a66643?auto=format&fit=crop&w=1200&q=80']
           : ['https://images.unsplash.com/photo-1514565131-fce0801e5785?auto=format&fit=crop&w=1200&q=80'];
 
-        // Save directly to Live Supabase Database
+        const resolvedHobby = customHobby.trim() || hobbyTag || 'Gaming';
+        const isAd = postType === 'ad';
+
+        // Save directly to Live Supabase Database with 70/20/10 metadata
         await createPostApi({
           author_id: activeUser.id,
           title,
@@ -232,6 +271,13 @@ export function CreatePage({ defaultKind }: CreatePageProps) {
           collaborators,
           is_ai_labeled: aiLabel,
           hide_stats: hideStats,
+          post_type: postType,
+          field_tag: postType === 'field' ? activeUser.role : undefined,
+          hobby_tag: postType === 'hobby' ? resolvedHobby : undefined,
+          is_ad: isAd,
+          sponsor_name: isAd ? (sponsorName.trim() || 'Partner') : undefined,
+          ad_cta_label: isAd ? (adCtaLabel.trim() || 'Learn More') : undefined,
+          ad_cta_url: isAd ? (adCtaUrl.trim() || 'https://amerigam.com') : undefined,
         });
 
         notifyContentUpdated();
@@ -241,8 +287,8 @@ export function CreatePage({ defaultKind }: CreatePageProps) {
         }, 500);
       }
     } catch (err: any) {
-      setError(err?.message || 'Failed to publish. Navigating to home.');
-      setTimeout(() => navigate('/home'), 800);
+      setError(err?.message || 'Failed to publish. Please check your connection and try again.');
+      setToastMessage(null);
     } finally {
       setBusy(false);
     }
@@ -579,6 +625,142 @@ export function CreatePage({ defaultKind }: CreatePageProps) {
 
             {/* Right Column: Details & Advance setup */}
             <div className="create-details-column">
+              {/* Feed Target Distribution: 70% Field, 20% Hobby, 10% Ad */}
+              {kind !== 'story' && (
+                <div className="feed-distribution-picker">
+                  <div className="feed-dist-header">
+                    <div className="feed-dist-title">
+                      <Sparkles size={15} style={{ color: '#00a8ed' }} />
+                      <span>Feed Target (70% Field / 20% Hobby / 10% Ads)</span>
+                    </div>
+                    <span className="feed-dist-badge">Amerigam AI Feed</span>
+                  </div>
+
+                  <div className="feed-dist-options">
+                    <button
+                      type="button"
+                      className={`feed-dist-btn ${postType === 'field' ? 'selected-field' : ''}`}
+                      onClick={() => setPostType('field')}
+                    >
+                      <Briefcase size={16} />
+                      <span style={{ fontSize: '12px', fontWeight: 700 }}>Field</span>
+                      <span className="feed-dist-pct">70% Target</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      className={`feed-dist-btn ${postType === 'hobby' ? 'selected-hobby' : ''}`}
+                      onClick={() => setPostType('hobby')}
+                    >
+                      <Heart size={16} />
+                      <span style={{ fontSize: '12px', fontWeight: 700 }}>Hobby</span>
+                      <span className="feed-dist-pct">20% Target</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      className={`feed-dist-btn ${postType === 'ad' ? 'selected-ad' : ''}`}
+                      onClick={() => setPostType('ad')}
+                    >
+                      <Megaphone size={16} />
+                      <span style={{ fontSize: '12px', fontWeight: 700 }}>Sponsored</span>
+                      <span className="feed-dist-pct">10% Target</span>
+                    </button>
+                  </div>
+
+                  {/* Subpanel for Field: Displays user's role */}
+                  {postType === 'field' && (
+                    <div className="feed-subpanel" style={{ borderColor: 'rgba(0, 168, 237, 0.3)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px' }}>
+                        <span style={{ color: '#94a3b8' }}>Target Audience Role:</span>
+                        <span style={{ color: '#38bdf8', fontWeight: 700 }}>{getCurrentUser().role}</span>
+                      </div>
+                      <small style={{ color: 'rgba(255, 255, 255, 0.45)', fontSize: '11px', lineHeight: 1.4 }}>
+                        This post fills 70% of the feed for creators in the <strong>{getCurrentUser().role}</strong> field.
+                      </small>
+                    </div>
+                  )}
+
+                  {/* Subpanel for Hobby: Select or custom hobby tag */}
+                  {postType === 'hobby' && (
+                    <div className="feed-subpanel" style={{ borderColor: 'rgba(236, 72, 153, 0.3)' }}>
+                      <span style={{ fontSize: '11px', fontWeight: 600, color: '#f472b6' }}>
+                        Select Passion / Hobby Category (20% Feed Pool):
+                      </span>
+                      <div className="feed-hobby-chips">
+                        {SUGGESTED_HOBBIES.map((h) => (
+                          <button
+                            key={h}
+                            type="button"
+                            className={`feed-hobby-chip ${hobbyTag === h && !customHobby ? 'active' : ''}`}
+                            onClick={() => {
+                              setHobbyTag(h);
+                              setCustomHobby('');
+                            }}
+                          >
+                            {h}
+                          </button>
+                        ))}
+                      </div>
+                      <div style={{ marginTop: '4px' }}>
+                        <input
+                          type="text"
+                          value={customHobby}
+                          onChange={(e) => setCustomHobby(e.target.value)}
+                          placeholder="Or type custom hobby (e.g. Coffee Brewing, Vinyl Records)..."
+                          className="details-text-input"
+                          style={{ fontSize: '12px', background: '#17181c', padding: '6px 10px', borderRadius: '6px', border: '1px solid #2e2f38' }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Subpanel for Sponsored: Sponsor brand name, CTA label & URL */}
+                  {postType === 'ad' && (
+                    <div className="feed-subpanel" style={{ borderColor: 'rgba(245, 158, 11, 0.3)' }}>
+                      <span style={{ fontSize: '11px', fontWeight: 600, color: '#fbbf24' }}>
+                        Sponsored Partner Details (10% Feed Pool):
+                      </span>
+                      <div className="feed-ad-inputs-grid">
+                        <div>
+                          <span className="field-top-label">Sponsor / Brand Name</span>
+                          <input
+                            type="text"
+                            value={sponsorName}
+                            onChange={(e) => setSponsorName(e.target.value)}
+                            placeholder="e.g. Sony Alpha"
+                            className="details-text-input"
+                            style={{ fontSize: '12px', background: '#17181c', padding: '6px 10px', borderRadius: '6px', border: '1px solid #2e2f38' }}
+                          />
+                        </div>
+                        <div>
+                          <span className="field-top-label">CTA Button Label</span>
+                          <input
+                            type="text"
+                            value={adCtaLabel}
+                            onChange={(e) => setAdCtaLabel(e.target.value)}
+                            placeholder="e.g. Shop Now"
+                            className="details-text-input"
+                            style={{ fontSize: '12px', background: '#17181c', padding: '6px 10px', borderRadius: '6px', border: '1px solid #2e2f38' }}
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <span className="field-top-label">CTA Destination URL</span>
+                        <input
+                          type="url"
+                          value={adCtaUrl}
+                          onChange={(e) => setAdCtaUrl(e.target.value)}
+                          placeholder="https://example.com"
+                          className="details-text-input"
+                          style={{ fontSize: '12px', background: '#17181c', padding: '6px 10px', borderRadius: '6px', border: '1px solid #2e2f38' }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* 1. Details Box */}
               <div className="composer-details-section">
                 <h2 className="section-heading">Details</h2>

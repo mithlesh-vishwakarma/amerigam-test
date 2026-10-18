@@ -15,7 +15,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import type { ReelItem } from '@/lib/types';
 import { CONTENT_UPDATED_EVENT } from '@/lib/content-store';
-import { getCurrentUser } from '@/lib/user-profiles';
+import { getCurrentUser, AUTH_CHANGED_EVENT } from '@/lib/user-profiles';
 import {
   fetchPosts,
   togglePostLikeApi,
@@ -26,10 +26,10 @@ import {
   resolveMediaUrl,
 } from '@/lib/api';
 import { useTopLoader } from './top-loader';
-import { FloatingPillNav } from './floating-pill-nav';
 import { CommentsModal } from './comments-modal';
 
 export function ReelFeed() {
+  const [currentUser, setCurrentUser] = useState(getCurrentUser());
   const [reels, setReels] = useState<ReelItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -47,126 +47,99 @@ export function ReelFeed() {
   const lastScrollTime = useRef<number>(0);
   const { triggerPulse } = useTopLoader();
 
-  // Load dynamic reels strictly from backend database
-  useEffect(() => {
-    let active = true;
-    async function loadReelsFromBackend() {
-      try {
-        const user = getCurrentUser();
-        const posts = await fetchPosts({ kind: 'reel', viewer_id: user.id });
-        if (active) {
-          if (posts && posts.length > 0) {
-            const mapped: ReelItem[] = posts.map((p) => ({
-              id: p.id,
-              title: p.title,
-              description: p.description,
-              video_url: resolveMediaUrl(
-                p.media_urls.find(
-                  (m) =>
-                    m.endsWith('.mp4') ||
-                    m.endsWith('.webm') ||
-                    m.includes('reel') ||
-                    m.includes('video')
-                ) ||
-                p.media_urls[0] ||
-                '/media/reel-1.mp4'
-              ),
-              poster_url: resolveMediaUrl(
-                p.poster_url ||
-                p.media_urls[0] ||
-                'https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?auto=format&fit=crop&w=800&q=80'
-              ),
-              creator: {
-                id: p.profiles?.id || p.author_id,
-                name: p.profiles?.display_name || 'Creator',
-                username: p.profiles?.username || 'creator',
-                avatar:
-                  p.profiles?.avatar_url ||
-                  'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=120&q=80',
-                initial: (p.profiles?.display_name || 'C')[0],
-                role: p.profiles?.role || 'Creator',
-              },
-              likes: p.like_count ?? 0,
-              comments: p.comment_count ?? 0,
-              shares: p.shares ?? 0,
-              views: p.views ?? 0,
-              duration: p.duration || '0:30',
-            }));
+  const loadReels = useCallback(async (viewerId?: string) => {
+    try {
+      const activeViewerId = viewerId || getCurrentUser().id;
+      const posts = await fetchPosts({ kind: 'reel', viewer_id: activeViewerId });
+      if (posts && posts.length > 0) {
+        const mapped: ReelItem[] = posts.map((p) => ({
+          id: p.id,
+          title: p.title,
+          description: p.description,
+          video_url: resolveMediaUrl(
+            p.media_urls?.find(
+              (m: string) =>
+                m.endsWith('.mp4') ||
+                m.endsWith('.webm') ||
+                m.includes('reel') ||
+                m.includes('video')
+            ) ||
+            p.media_urls?.[0] ||
+            '/media/reel-1.mp4'
+          ),
+          poster_url: resolveMediaUrl(
+            p.poster_url ||
+            p.media_urls?.[0] ||
+            'https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?auto=format&fit=crop&w=800&q=80'
+          ),
+          creator: {
+            id: p.profiles?.id || p.author_id,
+            name: p.profiles?.display_name || 'Creator',
+            username: p.profiles?.username || 'creator',
+            avatar:
+              p.profiles?.avatar_url ||
+              'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=120&q=80',
+            initial: (p.profiles?.display_name || 'C')[0],
+            role: p.profiles?.role || 'Creator',
+          },
+          likes: p.like_count ?? 0,
+          comments: p.comment_count ?? 0,
+          shares: p.shares ?? 0,
+          views: p.views ?? 0,
+          duration: p.duration || '0:30',
+          post_type: p.post_type,
+          field_tag: p.field_tag,
+          hobby_tag: p.hobby_tag,
+          is_ad: p.is_ad,
+          sponsor_name: p.sponsor_name,
+          ad_cta_label: p.ad_cta_label,
+          ad_cta_url: p.ad_cta_url,
+        }));
 
-            setReels(mapped);
+        setReels(mapped);
+        setCurrentIndex(0);
 
-            const initLikes: Record<string, { count: number; liked: boolean }> = {};
-            const initSaves: Record<string, boolean> = {};
-            posts.forEach((p) => {
-              initLikes[p.id] = { count: p.like_count || 0, liked: !!p.liked };
-              if (p.saved) initSaves[p.id] = true;
-            });
-            setLikes(initLikes);
-            setBookmarks(initSaves);
-          } else {
-            setReels([]);
-          }
-        }
-      } catch (err) {
-        console.warn('Reels backend fetch error:', err);
-      } finally {
-        if (active) setLoading(false);
+        const initLikes: Record<string, { count: number; liked: boolean }> = {};
+        const initSaves: Record<string, boolean> = {};
+        posts.forEach((p) => {
+          initLikes[p.id] = { count: p.like_count || 0, liked: !!p.liked };
+          if (p.saved) initSaves[p.id] = true;
+        });
+        setLikes(initLikes);
+        setBookmarks(initSaves);
+      } else {
+        setReels([]);
       }
+    } catch (err) {
+      console.warn('Reels fetch error:', err);
+    } finally {
+      setLoading(false);
     }
-    loadReelsFromBackend();
-    return () => {
-      active = false;
-    };
   }, []);
 
+  // Initial load
   useEffect(() => {
-    const handleUpdate = () => {
-      const user = getCurrentUser();
-      fetchPosts({ kind: 'reel', viewer_id: user.id }).then((posts) => {
-        if (posts && posts.length > 0) {
-          const mapped: ReelItem[] = posts.map((p) => ({
-            id: p.id,
-            title: p.title,
-            description: p.description,
-            video_url: resolveMediaUrl(
-              p.media_urls.find(
-                (m) =>
-                  m.endsWith('.mp4') ||
-                  m.endsWith('.webm') ||
-                  m.includes('reel') ||
-                  m.includes('video')
-              ) ||
-              p.media_urls[0] ||
-              '/media/reel-1.mp4'
-            ),
-            poster_url: resolveMediaUrl(
-              p.poster_url ||
-              p.media_urls[0] ||
-              'https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?auto=format&fit=crop&w=800&q=80'
-            ),
-            creator: {
-              id: p.profiles?.id || p.author_id,
-              name: p.profiles?.display_name || 'Creator',
-              username: p.profiles?.username || 'creator',
-              avatar:
-                p.profiles?.avatar_url ||
-                'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=120&q=80',
-              initial: (p.profiles?.display_name || 'C')[0],
-              role: p.profiles?.role || 'Creator',
-            },
-            likes: p.like_count ?? 0,
-            comments: p.comment_count ?? 0,
-            shares: p.shares ?? 0,
-            views: p.views ?? 0,
-            duration: p.duration || '0:30',
-          }));
-          setReels(mapped);
-        }
-      });
+    loadReels();
+  }, [loadReels]);
+
+  // Listen to profile switch or new content published
+  useEffect(() => {
+    const handleAuth = () => {
+      const nextUser = getCurrentUser();
+      setCurrentUser(nextUser);
+      loadReels(nextUser.id);
     };
+    const handleUpdate = () => {
+      loadReels(getCurrentUser().id);
+    };
+
+    window.addEventListener(AUTH_CHANGED_EVENT, handleAuth);
     window.addEventListener(CONTENT_UPDATED_EVENT, handleUpdate);
-    return () => window.removeEventListener(CONTENT_UPDATED_EVENT, handleUpdate);
-  }, []);
+    return () => {
+      window.removeEventListener(AUTH_CHANGED_EVENT, handleAuth);
+      window.removeEventListener(CONTENT_UPDATED_EVENT, handleUpdate);
+    };
+  }, [loadReels]);
 
   const currentReel: ReelItem | undefined = reels[currentIndex] || reels[0];
   const currentLikeState = currentReel ? likes[currentReel.id] || { count: currentReel.likes, liked: false } : { count: 0, liked: false };
@@ -466,6 +439,39 @@ export function ReelFeed() {
 
               {/* Creator Info & Caption (Bottom Left Overlay) */}
               <div className="reel-creator-info" onClick={(e) => e.stopPropagation()}>
+                {/* 70% Field, 20% Hobby, 10% Ad Badge */}
+                <div style={{ marginBottom: 8, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
+                  {(currentReel.post_type === 'ad' || currentReel.is_ad) ? (
+                    <>
+                      <span className="post-type-tag tag-ad" style={{ fontSize: '10px' }}>
+                        📢 Sponsored · {currentReel.sponsor_name || 'Brand Partner'} (10% Feed)
+                      </span>
+                      {currentReel.ad_cta_label && (
+                        <a
+                          href={currentReel.ad_cta_url || '#'}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="post-ad-cta-button"
+                          style={{ padding: '3px 10px', fontSize: '11px' }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {currentReel.ad_cta_label} ↗
+                        </a>
+                      )}
+                    </>
+                  ) : currentReel.post_type === 'hobby' ? (
+                    <span className="post-type-tag tag-hobby" style={{ fontSize: '10px' }}>
+                      🎨 Hobby: {currentReel.hobby_tag || 'Creative Passion'} (20% Feed)
+                    </span>
+                  ) : (
+                    <span className="post-type-tag tag-field" style={{ fontSize: '10px' }}>
+                      💼 {currentReel.field_tag === currentUser.role || currentReel.creator.role === currentUser.role
+                        ? `Your Field: ${currentUser.role} (70% Feed)`
+                        : `${currentReel.field_tag || currentReel.creator.role || 'Creator'} Field (Explore)`}
+                    </span>
+                  )}
+                </div>
+
                 <div className="reel-author-row">
                   <div className="reel-author-avatar">
                     {currentReel.creator.avatar ? (
@@ -608,9 +614,6 @@ export function ReelFeed() {
           );
         }}
       />
-
-      {/* Floating Pill Navigation Menu matching user screenshot */}
-      <FloatingPillNav />
     </div>
   );
 }

@@ -130,6 +130,24 @@ export function SearchPage({ defaultTab = 'explore' }: SearchPageProps) {
     setSearchInput(q);
   }, [q]);
 
+  // Debounced search query sync
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (searchInput.trim() !== q) {
+        setSearchParams((prev) => {
+          const next = new URLSearchParams(prev);
+          if (searchInput.trim()) {
+            next.set('q', searchInput.trim());
+          } else {
+            next.delete('q');
+          }
+          return next;
+        });
+      }
+    }, 280);
+    return () => clearTimeout(timer);
+  }, [searchInput, q, setSearchParams]);
+
   const loadBackendData = useCallback(async () => {
     try {
       const user = getCurrentUser();
@@ -262,7 +280,7 @@ export function SearchPage({ defaultTab = 'explore' }: SearchPageProps) {
     }
     return communities.filter((comm) => {
       if (selectedTag !== 'All') {
-        const hasTag = comm.tags.some((t) => t.toLowerCase().includes(selectedTag.toLowerCase()));
+        const hasTag = comm.tags.some((t: string) => t.toLowerCase().includes(selectedTag.toLowerCase()));
         if (!hasTag) return false;
       }
       if (q) {
@@ -271,7 +289,7 @@ export function SearchPage({ defaultTab = 'explore' }: SearchPageProps) {
           comm.name.toLowerCase().includes(queryLower) ||
           comm.category.toLowerCase().includes(queryLower) ||
           comm.description.toLowerCase().includes(queryLower) ||
-          comm.tags.some((t) => t.toLowerCase().includes(queryLower))
+          comm.tags.some((t: string) => t.toLowerCase().includes(queryLower))
         );
       }
       return true;
@@ -286,7 +304,7 @@ export function SearchPage({ defaultTab = 'explore' }: SearchPageProps) {
         return false;
       }
       if (selectedTag !== 'All') {
-        const hasSkill = creator.skills.some((s) => s.toLowerCase().includes(selectedTag.toLowerCase()));
+        const hasSkill = creator.skills.some((s: string) => s.toLowerCase().includes(selectedTag.toLowerCase()));
         if (!hasSkill && !creator.role.toLowerCase().includes(selectedTag.toLowerCase())) return false;
       }
       if (q) {
@@ -296,7 +314,7 @@ export function SearchPage({ defaultTab = 'explore' }: SearchPageProps) {
           creator.username.toLowerCase().includes(queryLower) ||
           creator.role.toLowerCase().includes(queryLower) ||
           creator.bio.toLowerCase().includes(queryLower) ||
-          creator.skills.some((s) => s.toLowerCase().includes(queryLower))
+          creator.skills.some((s: string) => s.toLowerCase().includes(queryLower))
         );
       }
       return true;
@@ -460,7 +478,7 @@ export function SearchPage({ defaultTab = 'explore' }: SearchPageProps) {
                     </div>
 
                     <div className="community-tags-list">
-                      {selectedCommunity.tags.map((tag) => (
+                      {selectedCommunity.tags.map((tag: string) => (
                         <span key={tag} className="comm-tag-pill">
                           #{tag}
                         </span>
@@ -600,7 +618,7 @@ export function SearchPage({ defaultTab = 'explore' }: SearchPageProps) {
                     </p>
 
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                      {creator.skills.map((s) => (
+                      {creator.skills.map((s: string) => (
                         <span
                           key={s}
                           style={{

@@ -44,6 +44,7 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+app.set('trust proxy', 1);
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -354,6 +355,7 @@ app.get('/api/posts', async (req, res) => {
       viewer_id,
       limit,
       offset,
+      post_type,
     } = req.query;
 
     const posts = await getPosts({
@@ -365,6 +367,7 @@ app.get('/api/posts', async (req, res) => {
       viewer_id: viewer_id as string,
       limit: limit ? parseInt(limit as string, 10) : 50,
       offset: offset ? parseInt(offset as string, 10) : 0,
+      post_type: post_type as any,
     });
 
     res.json({ items: posts, count: posts.length });
@@ -447,6 +450,13 @@ app.post('/api/posts', async (req, res) => {
       hide_stats = false,
       community_id,
       author_id = 'user-dev',
+      post_type = 'field',
+      field_tag,
+      hobby_tag,
+      is_ad = false,
+      sponsor_name,
+      ad_cta_label,
+      ad_cta_url,
     } = req.body;
 
     if (!title) {
@@ -471,6 +481,13 @@ app.post('/api/posts', async (req, res) => {
       views: 1,
       like_count: 0,
       comment_count: 0,
+      post_type,
+      field_tag,
+      hobby_tag,
+      is_ad,
+      sponsor_name,
+      ad_cta_label,
+      ad_cta_url,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };

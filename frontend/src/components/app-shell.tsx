@@ -24,6 +24,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { InteractiveLogo } from './interactive-logo';
 import { useTopLoader } from './top-loader';
+import { FloatingPillNav } from './floating-pill-nav';
 import {
   getCurrentUser,
   getJoinedCommunitiesForUser,
@@ -104,10 +105,12 @@ export function AppShell({
   children,
   right = true,
   isReelFeed = false,
+  contentClassName = '',
 }: {
   children: React.ReactNode;
   right?: boolean;
   isReelFeed?: boolean;
+  contentClassName?: string;
 }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [user, setUser] = useState<UserProfile>(getCurrentUser());
@@ -407,7 +410,7 @@ export function AppShell({
       </header>
 
       {/* 3-column body where left-nav, main-content, and right-rail each have their own scroll */}
-      <div className={`app-body ${isFeedMode ? 'reel-body-layout' : ''}`}>
+      <div className={`app-body ${isFeedMode ? 'reel-body-layout' : ''} ${!right && !isFeedMode ? 'no-right-rail' : ''}`}>
         {/* Left column - independently scrollable (hidden on mobile via CSS) */}
         <aside className="left-nav" aria-label="Main Navigation">
           <div className="left-nav-top">
@@ -464,13 +467,16 @@ export function AppShell({
         </aside>
 
         {/* Central feed column - independently scrollable */}
-        <main className={`main-content ${isFeedMode ? 'reel-main-content' : ''}`} tabIndex={-1}>
+        <main className={`main-content ${isFeedMode ? 'reel-main-content' : ''} ${contentClassName || ''}`} tabIndex={-1}>
           {children}
         </main>
 
         {/* Right column - independently scrollable (hidden on reel feed mode) */}
         {!isFeedMode && right && <RightRail />}
       </div>
+
+      {/* Global Quick Navigation Pill */}
+      <FloatingPillNav />
     </div>
   );
 }

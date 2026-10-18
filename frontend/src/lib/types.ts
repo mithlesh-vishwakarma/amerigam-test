@@ -3,10 +3,14 @@ export type Profile = { id: string; username: string; display_name: string; avat
 export type Post = {
   id: string;
   author_id: string;
+  community_id?: string;
   title: string;
   description: string;
   kind: ContentKind;
   media_urls: string[];
+  poster_url?: string;
+  duration?: string;
+  music?: string;
   views: number;
   created_at: string;
   profiles: Profile;
@@ -19,14 +23,23 @@ export type Post = {
   collaborators?: string[];
   is_ai_labeled?: boolean;
   hide_stats?: boolean;
+  post_type?: 'field' | 'hobby' | 'ad';
+  field_tag?: string;
+  hobby_tag?: string;
+  is_ad?: boolean;
+  sponsor_name?: string;
+  ad_cta_label?: string;
+  ad_cta_url?: string;
 };
 
 export type StoryItem = {
   id: string;
   author: {
+    id?: string;
     name: string;
     username: string;
     avatar: string;
+    role?: string;
   };
   media_url: string;
   media_type: 'image' | 'video';
@@ -48,6 +61,7 @@ export type UserProfile = {
   points: string;
   rating: string;
   skills: string[];
+  hobbies?: string[];
   joinedCommunityIds: string[];
   themeColor: string;
 };
@@ -87,4 +101,11 @@ export type ReelItem = {
   duration?: string;
   music?: string;
   badgeTop?: boolean;
+  post_type?: 'field' | 'hobby' | 'ad';
+  field_tag?: string;
+  hobby_tag?: string;
+  is_ad?: boolean;
+  sponsor_name?: string;
+  ad_cta_label?: string;
+  ad_cta_url?: string;
 };

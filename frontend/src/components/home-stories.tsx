@@ -219,7 +219,7 @@ export function HomeStories() {
         >
           <span className={`story-avatar ${hasUserStory ? 'has-ring ring-user-active' : ''}`}>
             <img
-              src={currentUser.avatar_url}
+              src={resolveMediaUrl(currentUser.avatar_url)}
               alt="Your story"
             />
             <i
@@ -248,7 +248,7 @@ export function HomeStories() {
             style={{ cursor: 'pointer' }}
           >
             <span className="story-avatar has-ring">
-              <img src={creator.author.avatar} alt={creator.author.name} />
+              <img src={resolveMediaUrl(creator.author.avatar)} alt={creator.author.name} />
             </span>
             <b>{creator.author.name}</b>
             <small>{creator.stories.length > 1 ? `${creator.stories.length} stories` : creator.latestStory.time}</small>
@@ -280,9 +280,9 @@ export function HomeStories() {
                       className="story-progress-fill"
                       style={{
                         width:
-                          i === activeStoryIndex
+                          activeStoryIndex !== null && i === activeStoryIndex
                             ? `${progress}%`
-                            : i < activeStoryIndex
+                            : activeStoryIndex !== null && i < activeStoryIndex
                               ? '100%'
                               : '0%',
                       }}

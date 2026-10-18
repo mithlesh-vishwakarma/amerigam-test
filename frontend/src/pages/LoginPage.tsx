@@ -96,7 +96,7 @@ export function LoginPage() {
         <section className="login-profiles-grid" aria-label="Available user accounts">
           {profiles.map((profile) => {
             const isCurrent = activeUser.id === profile.id;
-            const Icon = ROLE_ICONS[profile.role] || Code2;
+            const Icon = (ROLE_ICONS as Record<string, React.ElementType>)[profile.role] || Code2;
 
             return (
               <motion.div
@@ -177,7 +177,7 @@ export function LoginPage() {
 
                 {/* Skills tags */}
                 <div className="profile-skills-row">
-                  {profile.skills.slice(0, 4).map((skill) => (
+                  {profile.skills.slice(0, 4).map((skill: string) => (
                     <span key={skill} className="skill-chip">
                       {skill}
                     </span>
@@ -249,7 +249,7 @@ export function LoginPage() {
                   </div>
                   <p className="comm-desc-text">{comm.description}</p>
                   <div className="comm-tags-row">
-                    {comm.tags.slice(0, 3).map((tag) => (
+                    {comm.tags.slice(0, 3).map((tag: string) => (
                       <span key={tag} className="comm-tag-chip">
                         #{tag}
                       </span>

@@ -11,13 +11,15 @@ import {
 import { FeedFilters } from './feed-filters';
 import { HomeStories } from './home-stories';
 import { CommentsModal } from './comments-modal';
-import { fetchPosts, togglePostLikeApi, togglePostSaveApi, incrementPostViewsApi, incrementPostShareApi, resolveMediaUrl } from '@/lib/api';
+import { fetchPosts, togglePostLikeApi, togglePostSaveApi, incrementPostViewsApi, incrementPostShareApi, toggleFollowApi, resolveMediaUrl } from '@/lib/api';
+import { classifyPost, applyFeedDistributionRatio, calculateFeedRatioStats } from '@/lib/feed-algorithm';
 import type { Post } from '@/lib/types';
 
 export function Feed({ variant = 'home' }: { variant?: 'home' | 'feed' }) {
   const [following, setFollowing] = useState(false);
   const [showFullCaption, setShowFullCaption] = useState(false);
   const [filter, setFilter] = useState('For You');
+  const [ratioFilter, setRatioFilter] = useState<'all' | 'field' | 'hobby' | 'ad'>('all');
   const [currentUserProfile, setCurrentUserProfile] = useState<UserProfile>(getCurrentUser());
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
@@ -61,8 +63,24 @@ export function Feed({ variant = 'home' }: { variant?: 'home' | 'feed' }) {
 
   const userCommunities = getJoinedCommunitiesForUser(currentUserProfile);
 
-  // Dynamically filtered posts based on active tab ('For You' | 'Communities' | 'Network')
+  // Dynamically filtered posts based on active tab ('For You' | 'Communities' | 'Network') and 70/20/10 ratio
   const displayedPosts = useMemo(() => {
+    if (filter === 'For You') {
+      let balanced = applyFeedDistributionRatio(
+        posts,
+        currentUserProfile.role,
+        currentUserProfile.hobbies || []
+      );
+      if (ratioFilter === 'field') {
+        balanced = balanced.filter((p) => (p.post_type || classifyPost(p)) === 'field');
+      } else if (ratioFilter === 'hobby') {
+        balanced = balanced.filter((p) => (p.post_type || classifyPost(p)) === 'hobby');
+      } else if (ratioFilter === 'ad') {
+        balanced = balanced.filter((p) => (p.post_type || classifyPost(p)) === 'ad' || p.is_ad);
+      }
+      return balanced;
+    }
+
     if (filter === 'Communities') {
       if (selectedCommunityFilter === 'all') return posts;
       return posts.filter((p) => p.community_id === selectedCommunityFilter);
@@ -71,7 +89,7 @@ export function Feed({ variant = 'home' }: { variant?: 'home' | 'feed' }) {
       return posts.filter((p) => p.author_id !== currentUserProfile.id);
     }
     return posts;
-  }, [filter, posts, selectedCommunityFilter, currentUserProfile.id]);
+  }, [filter, posts, selectedCommunityFilter, currentUserProfile.role, currentUserProfile.hobbies, currentUserProfile.id, ratioFilter]);
 
   // Primary featured post (Live Database)
   const primaryPost: Post | undefined = displayedPosts[0];
@@ -119,7 +137,7 @@ export function Feed({ variant = 'home' }: { variant?: 'home' | 'feed' }) {
         },
         likes: p.like_count ?? 0,
         comments: p.comment_count ?? 0,
-        shares: 24,
+        shares: p.shares ?? 0,
         views: p.views ?? 0,
         duration: p.duration || '0:30',
       }));
@@ -170,6 +188,58 @@ export function Feed({ variant = 'home' }: { variant?: 'home' | 'feed' }) {
           </Link>
         </div>
       </div>
+
+      {/* 70% Field, 20% Hobby, 10% Ads Algorithm Dashboard Banner */}
+      {filter === 'For You' && (
+        <div className="feed-ratio-card">
+          <div className="feed-ratio-header-row">
+            <div className="feed-ratio-title">
+              <Sparkles size={16} color="#00a8ed" />
+              <span>Smart Feed Ratio: <strong>70% Field</strong> · <strong>20% Hobby</strong> · <strong>10% Ads</strong></span>
+            </div>
+            <span style={{ fontSize: '11px', color: '#94a3b8' }}>
+              For: <strong style={{ color: currentUserProfile.themeColor }}>{currentUserProfile.role}</strong> & {(currentUserProfile.hobbies || []).slice(0, 2).join(', ')}
+            </span>
+          </div>
+
+          <div className="feed-ratio-bar-track">
+            <div className="feed-ratio-bar-field" style={{ width: '70%' }} title="70% Professional Field" />
+            <div className="feed-ratio-bar-hobby" style={{ width: '20%' }} title="20% Personal Hobbies" />
+            <div className="feed-ratio-bar-ad" style={{ width: '10%' }} title="10% Sponsored Brands" />
+          </div>
+
+          <div className="feed-ratio-filter-chips">
+            <button
+              type="button"
+              className={`feed-ratio-chip ${ratioFilter === 'all' ? 'active-all' : ''}`}
+              onClick={() => setRatioFilter('all')}
+            >
+              <span>🎯 All (70/20/10 Ratio)</span>
+            </button>
+            <button
+              type="button"
+              className={`feed-ratio-chip ${ratioFilter === 'field' ? 'active-field' : ''}`}
+              onClick={() => setRatioFilter('field')}
+            >
+              <span>💼 {currentUserProfile.role} Field (70%)</span>
+            </button>
+            <button
+              type="button"
+              className={`feed-ratio-chip ${ratioFilter === 'hobby' ? 'active-hobby' : ''}`}
+              onClick={() => setRatioFilter('hobby')}
+            >
+              <span>🎨 Hobbies (20%)</span>
+            </button>
+            <button
+              type="button"
+              className={`feed-ratio-chip ${ratioFilter === 'ad' ? 'active-ad' : ''}`}
+              onClick={() => setRatioFilter('ad')}
+            >
+              <span>📢 Sponsored Ads (10%)</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Sub-header for Communities filter */}
       {filter === 'Communities' && (
@@ -299,7 +369,18 @@ export function Feed({ variant = 'home' }: { variant?: 'home' | 'feed' }) {
               <button
                 type="button"
                 className={`post-follow-pill ${following ? 'is-following' : ''}`}
-                onClick={() => setFollowing(!following)}
+                onClick={async () => {
+                  const authorId = primaryPost.profiles?.id || primaryPost.author_id;
+                  const nextFollowing = !following;
+                  setFollowing(nextFollowing);
+                  setNotice(nextFollowing ? `Following @${primaryPost.profiles?.username || 'creator'}` : `Unfollowed @${primaryPost.profiles?.username || 'creator'}`);
+                  setTimeout(() => setNotice(''), 2200);
+                  try {
+                    await toggleFollowApi(currentUserProfile.id, authorId);
+                  } catch (err) {
+                    console.warn('Follow toggle error:', err);
+                  }
+                }}
               >
                 {following ? 'Following' : 'Follow'}
               </button>
@@ -309,8 +390,45 @@ export function Feed({ variant = 'home' }: { variant?: 'home' | 'feed' }) {
             </div>
           </header>
 
-          {/* Post Caption with ...more toggle */}
+          {/* Post Caption with ...more toggle & Classification Badges */}
           <div className="post-caption-box">
+            {/* Visual Classification Badge and Sponsor CTA */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, flexWrap: 'wrap', gap: 6 }}>
+              {primaryPost.post_type === 'ad' || primaryPost.is_ad ? (
+                <>
+                  <span className="post-type-tag tag-ad">
+                    📢 Sponsored · {primaryPost.sponsor_name || 'Brand Partner'} (10% Feed)
+                  </span>
+                  {primaryPost.ad_cta_label && (
+                    <a
+                      href={primaryPost.ad_cta_url || '#'}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="post-ad-cta-button"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {primaryPost.ad_cta_label} ↗
+                    </a>
+                  )}
+                </>
+              ) : primaryPost.post_type === 'hobby' ? (
+                <span className="post-type-tag tag-hobby">
+                  🎨 Hobby: {primaryPost.hobby_tag || 'Creative Passion'} (20% Feed)
+                </span>
+              ) : (
+                <span
+                  className="post-type-tag tag-field"
+                  style={{
+                    color: currentUserProfile.themeColor,
+                    borderColor: `${currentUserProfile.themeColor}55`,
+                    background: `${currentUserProfile.themeColor}15`,
+                  }}
+                >
+                  💼 {primaryPost.field_tag || primaryPost.profiles?.role || currentUserProfile.role} Field (70% Feed)
+                </span>
+              )}
+            </div>
+
             <h3 style={{ fontSize: '15px', color: '#fff', margin: '0 0 6px 0', fontWeight: 600 }}>
               {primaryPost.title}
             </h3>
@@ -334,25 +452,53 @@ export function Feed({ variant = 'home' }: { variant?: 'home' | 'feed' }) {
 
           {/* Horizontal Scrollable Posts Media Carousel */}
           <div className="post-horizontal-carousel">
-            {primaryPost.media_urls.map((mediaUrl, idx) => (
-              <div
-                key={`${primaryPost.id}-slide-${idx}`}
-                className="post-slide-card"
-                style={{ backgroundImage: `url(${mediaUrl})` }}
-              >
-                <div className="home-card-scrim" />
-                <div className="home-card-content">
-                  <h4 className="home-card-title">{primaryPost.title}</h4>
-                  <p className="home-card-handle">@{primaryPost.profiles?.username || 'creator'}</p>
-                  <div className="home-card-views">
-                    <Play size={10} fill="currentColor" strokeWidth={0} />
-                    <span>
-                      {((primaryPost.views || 18400) / 1000).toFixed(1)}K
-                    </span>
+            {(primaryPost.media_urls || []).map((rawUrl, idx) => {
+              const mediaUrl = resolveMediaUrl(rawUrl);
+              const isVideo = mediaUrl.endsWith('.mp4') || mediaUrl.endsWith('.webm') || mediaUrl.includes('video') || mediaUrl.includes('reel');
+              const poster = primaryPost.poster_url ? resolveMediaUrl(primaryPost.poster_url) : undefined;
+              return (
+                <div
+                  key={`${primaryPost.id}-slide-${idx}`}
+                  className="post-slide-card"
+                  style={{
+                    backgroundImage: !isVideo && mediaUrl ? `url(${mediaUrl})` : (poster ? `url(${poster})` : undefined),
+                    backgroundColor: '#16171d',
+                    position: 'relative',
+                    overflow: 'hidden',
+                  }}
+                >
+                  {isVideo && (
+                    <video
+                      src={mediaUrl}
+                      poster={poster}
+                      muted
+                      loop
+                      playsInline
+                      autoPlay
+                      style={{
+                        position: 'absolute',
+                        inset: 0,
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                        zIndex: 0,
+                      }}
+                    />
+                  )}
+                  <div className="home-card-scrim" style={{ zIndex: 1 }} />
+                  <div className="home-card-content" style={{ zIndex: 2 }}>
+                    <h4 className="home-card-title">{primaryPost.title}</h4>
+                    <p className="home-card-handle">@{primaryPost.profiles?.username || 'creator'}</p>
+                    <div className="home-card-views">
+                      <Play size={10} fill="currentColor" strokeWidth={0} />
+                      <span>
+                        {((primaryPost.views || 0) / 1000).toFixed(1)}K
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Notice Toast */}
@@ -496,30 +642,52 @@ export function Feed({ variant = 'home' }: { variant?: 'home' | 'feed' }) {
         {/* Right Column: Stacked Cards as shown in reference */}
         <div className="home-side-stack">
           {sidePosts.length > 0 ? (
-            sidePosts.map((card) => (
-              <Link
-                to={`/posts/${card.id}`}
-                key={card.id}
-                className="side-stack-card"
-                style={{
-                  backgroundImage: card.media_urls?.[0] ? `url(${card.media_urls[0]})` : undefined,
-                  backgroundColor: '#1b1d24',
-                  textDecoration: 'none',
-                }}
-              >
-                <div className="home-card-scrim" />
-                <div className="home-card-content">
-                  <h4 className="home-card-title">{card.title}</h4>
-                  <p className="home-card-handle">@{card.profiles?.username || 'creator'}</p>
-                  <div className="home-card-views">
-                    <Play size={10} fill="currentColor" strokeWidth={0} />
-                    <span>
-                      {((card.views || 0) / 1000).toFixed(1)}
-                    </span>
+            sidePosts.map((card) => {
+              const rawMedia = card.media_urls?.[0] ? resolveMediaUrl(card.media_urls[0]) : '';
+              const isVideo = rawMedia.endsWith('.mp4') || rawMedia.endsWith('.webm') || rawMedia.includes('video') || rawMedia.includes('reel');
+              const poster = card.poster_url ? resolveMediaUrl(card.poster_url) : (!isVideo ? rawMedia : undefined);
+              return (
+                <Link
+                  to={`/posts/${card.id}`}
+                  key={card.id}
+                  className="side-stack-card"
+                  style={{
+                    backgroundImage: poster ? `url(${poster})` : undefined,
+                    backgroundColor: '#1b1d24',
+                    textDecoration: 'none',
+                    position: 'relative',
+                    overflow: 'hidden',
+                  }}
+                >
+                  <div className="home-card-scrim" />
+                  <div className="home-card-content">
+                    <div style={{ marginBottom: 4 }}>
+                      {(card.post_type === 'ad' || card.is_ad) ? (
+                        <span className="post-type-tag tag-ad" style={{ fontSize: '9px', padding: '1px 6px' }}>
+                          📢 Ad (10%)
+                        </span>
+                      ) : card.post_type === 'hobby' ? (
+                        <span className="post-type-tag tag-hobby" style={{ fontSize: '9px', padding: '1px 6px' }}>
+                          🎨 {card.hobby_tag || 'Hobby'} (20%)
+                        </span>
+                      ) : (
+                        <span className="post-type-tag tag-field" style={{ fontSize: '9px', padding: '1px 6px' }}>
+                          💼 {card.field_tag || card.profiles?.role || 'Field'} (70%)
+                        </span>
+                      )}
+                    </div>
+                    <h4 className="home-card-title">{card.title}</h4>
+                    <p className="home-card-handle">@{card.profiles?.username || 'creator'}</p>
+                    <div className="home-card-views">
+                      <Play size={10} fill="currentColor" strokeWidth={0} />
+                      <span>
+                        {((card.views || 0) / 1000).toFixed(1)}K
+                      </span>
+                    </div>
                   </div>
-                </div>
-              </Link>
-            ))
+                </Link>
+              );
+            })
           ) : (
             <div style={{ padding: '24px 16px', color: '#64748b', fontSize: '13px', textAlign: 'center' }}>
               No other posts in this stream.

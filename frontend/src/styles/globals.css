@@ -177,6 +177,19 @@ a {
   overflow: hidden;
 }
 
+.app-body.no-right-rail {
+  grid-template-columns: 260px minmax(0, 1fr) !important;
+}
+
+.main-content.messages-main-content {
+  padding: 16px 20px 20px 20px !important;
+  height: 100% !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
 /* Left Nav Column - Independent Scroll */
 .left-nav {
   height: 100%;
@@ -473,6 +486,9 @@ a {
 @media (max-width: 1100px) {
   .app-body {
     grid-template-columns: 220px minmax(0, 1fr) 280px;
+  }
+  .app-body.no-right-rail {
+    grid-template-columns: 220px minmax(0, 1fr) !important;
   }
   .search-wrap {
     width: 300px;

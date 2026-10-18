@@ -39,6 +39,7 @@ CREATE TABLE profiles (
   points TEXT NOT NULL DEFAULT '0 AP',
   rating TEXT NOT NULL DEFAULT '5.0',
   skills TEXT[] NOT NULL DEFAULT '{}',
+  hobbies TEXT[] NOT NULL DEFAULT '{}',
   theme_color TEXT NOT NULL DEFAULT '#00a8ed',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -80,7 +81,7 @@ CREATE TABLE community_members (
   CONSTRAINT unique_community_member UNIQUE (community_id, profile_id)
 );
 
--- POSTS (Posts, Reels, and Blogs with Rich Metadata)
+-- POSTS (Posts, Reels, and Blogs with Rich Metadata: 70% Field, 20% Hobby, 10% Ads)
 CREATE TABLE posts (
   id TEXT PRIMARY KEY,
   author_id TEXT NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
@@ -99,6 +100,14 @@ CREATE TABLE posts (
   views INT NOT NULL DEFAULT 1,
   like_count INT NOT NULL DEFAULT 0,
   comment_count INT NOT NULL DEFAULT 0,
+  shares INT NOT NULL DEFAULT 0,
+  post_type TEXT NOT NULL DEFAULT 'field' CHECK (post_type IN ('field', 'hobby', 'ad')),
+  field_tag TEXT DEFAULT '',
+  hobby_tag TEXT DEFAULT '',
+  is_ad BOOLEAN NOT NULL DEFAULT FALSE,
+  sponsor_name TEXT DEFAULT '',
+  ad_cta_label TEXT DEFAULT '',
+  ad_cta_url TEXT DEFAULT '',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

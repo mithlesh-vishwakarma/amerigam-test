@@ -1,3 +1,5 @@
+import type { UserProfile, StoryItem, Post } from './types';
+
 // Render Backend / Vercel API Base
 export const BACKEND_URL =
   import.meta.env.VITE_BACKEND_URL ||
@@ -184,6 +186,7 @@ export interface FetchPostsOptions {
   viewer_id?: string;
   limit?: number;
   offset?: number;
+  post_type?: 'field' | 'hobby' | 'ad';
 }
 
 export async function fetchPosts(options: FetchPostsOptions = {}): Promise<Post[]> {
@@ -197,6 +200,7 @@ export async function fetchPosts(options: FetchPostsOptions = {}): Promise<Post[
     if (options.viewer_id) params.set('viewer_id', options.viewer_id);
     if (options.limit) params.set('limit', String(options.limit));
     if (options.offset) params.set('offset', String(options.offset));
+    if (options.post_type) params.set('post_type', options.post_type);
 
     const qs = params.toString();
     const url = qs ? `${API_BASE}/posts?${qs}` : `${API_BASE}/posts`;

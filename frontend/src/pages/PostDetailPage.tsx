@@ -30,6 +30,7 @@ export function PostDetailPage() {
   const currentUser = getCurrentUser();
 
   useEffect(() => {
+    if (!id) return;
     // Fetch post and comments from backend database
     fetchPostById(id, currentUser.id)
       .then((res) => {

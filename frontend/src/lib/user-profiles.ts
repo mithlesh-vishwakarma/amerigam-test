@@ -1,4 +1,5 @@
 import type { UserProfile, CommunityProfile } from './types';
+export type { UserProfile, CommunityProfile };
 
 export const AUTH_CHANGED_EVENT = 'amerigam:auth-changed';
 const ACTIVE_USER_KEY = 'amerigam_active_user_id_v1';
@@ -16,6 +17,7 @@ export const USER_PROFILES: UserProfile[] = [
     points: '4,820 AP',
     rating: '4.9',
     skills: ['TypeScript', 'React', 'WebGL', 'Vite', 'GraphQL', 'Rust'],
+    hobbies: ['Gaming', 'Photography', 'Sci-Fi Cinema', 'Mechanical Keyboards'],
     joinedCommunityIds: ['comm-dev', 'comm-cinema', 'comm-product'],
     themeColor: '#00a8ed',
   },
@@ -30,6 +32,7 @@ export const USER_PROFILES: UserProfile[] = [
     points: '8,940 AP',
     rating: '5.0',
     skills: ['DaVinci Resolve', 'Color Grading', 'Premiere Pro', 'Sound Design', 'Film Print'],
+    hobbies: ['Cinema & Film', 'Music Production', 'Drone Videography', 'Photography'],
     joinedCommunityIds: ['comm-cinema', 'comm-writers'],
     themeColor: '#f43f5e',
   },
@@ -44,6 +47,7 @@ export const USER_PROFILES: UserProfile[] = [
     points: '6,310 AP',
     rating: '4.9',
     skills: ['Narrative Essays', 'Long-form Journalism', 'Creative Direction', 'Copywriting', 'SEO & Strategy'],
+    hobbies: ['Literature & Books', 'Travel & Culture', 'Art & Sketching', 'Philosophy'],
     joinedCommunityIds: ['comm-writers', 'comm-product', 'comm-dev'],
     themeColor: '#10b981',
   },
@@ -58,6 +62,7 @@ export const USER_PROFILES: UserProfile[] = [
     points: '7,150 AP',
     rating: '4.8',
     skills: ['Market Analytics', 'Cohort Modeling', 'SQL & BI', 'Retention Funnels', 'Product Economics'],
+    hobbies: ['Fitness & Marathons', 'Chess & Strategy', 'Podcasts & Audiobooks', 'Tech Gadgets'],
     joinedCommunityIds: ['comm-product', 'comm-dev'],
     themeColor: '#f59e0b',
   },
@@ -121,14 +126,32 @@ export const COMMUNITY_PROFILES: CommunityProfile[] = [
 
 
 // Authentication state functions
+export function getUserHobbies(profile: UserProfile): string[] {
+  if (typeof window === 'undefined') return profile.hobbies || [];
+  try {
+    const stored = localStorage.getItem(`amerigam_user_hobbies_${profile.id}`);
+    if (stored) return JSON.parse(stored);
+  } catch {}
+  return profile.hobbies || [];
+}
 
-// Authentication state functions
+export function updateUserHobbies(profileId: string, hobbies: string[]): void {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(`amerigam_user_hobbies_${profileId}`, JSON.stringify(hobbies));
+    const profile = USER_PROFILES.find((p) => p.id === profileId);
+    if (profile) profile.hobbies = hobbies;
+    window.dispatchEvent(new CustomEvent(AUTH_CHANGED_EVENT, { detail: getCurrentUser() }));
+  }
+}
+
 export function getCurrentUser(): UserProfile {
   if (typeof window === 'undefined') return USER_PROFILES[0];
   try {
     const storedId = localStorage.getItem(ACTIVE_USER_KEY);
     const found = USER_PROFILES.find((p) => p.id === storedId);
-    return found || USER_PROFILES[0]; // Defaults to Developer
+    const user = found || USER_PROFILES[0];
+    const customHobbies = getUserHobbies(user);
+    return { ...user, hobbies: customHobbies };
   } catch {
     return USER_PROFILES[0];
   }
@@ -138,13 +161,15 @@ export function setCurrentUser(profileId: string): UserProfile {
   const profile = USER_PROFILES.find((p) => p.id === profileId) || USER_PROFILES[0];
   if (typeof window !== 'undefined') {
     localStorage.setItem(ACTIVE_USER_KEY, profile.id);
-    window.dispatchEvent(new CustomEvent(AUTH_CHANGED_EVENT, { detail: profile }));
+    const userWithHobbies = { ...profile, hobbies: getUserHobbies(profile) };
+    window.dispatchEvent(new CustomEvent(AUTH_CHANGED_EVENT, { detail: userWithHobbies }));
+    return userWithHobbies;
   }
   return profile;
 }
 
 export function getAllProfiles(): UserProfile[] {
-  return USER_PROFILES;
+  return USER_PROFILES.map((p) => ({ ...p, hobbies: getUserHobbies(p) }));
 }
 
 export function getAllCommunities(): CommunityProfile[] {

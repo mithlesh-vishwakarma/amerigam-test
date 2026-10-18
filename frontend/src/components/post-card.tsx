@@ -24,10 +24,34 @@ import type { Post } from '@/lib/types';
 export function MediaCard({ post }: { post: Post }) {
   const rawImage = post.media_urls?.[0];
   const image = resolveMediaUrl(rawImage);
+  const isVideo = Boolean(rawImage?.endsWith('.mp4') || rawImage?.endsWith('.webm') || rawImage?.includes('video') || rawImage?.includes('reel'));
+  const poster = post.poster_url ? resolveMediaUrl(post.poster_url) : (!isVideo ? image : '');
+
   return (
     <Link to={`/posts/${post.id}`} className="media-card">
-      {image ? <img src={image} alt={post.title} /> : <div className="blog-cover" />}
+      {poster ? (
+        <img src={poster} alt={post.title} />
+      ) : isVideo && image ? (
+        <video src={image} muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      ) : (
+        <div className="blog-cover" />
+      )}
       <div className="media-shade">
+        <div style={{ marginBottom: 4 }}>
+          {(post.post_type === 'ad' || post.is_ad) ? (
+            <span className="post-type-tag tag-ad" style={{ fontSize: '9px', padding: '1px 5px' }}>
+              📢 Ad (10%)
+            </span>
+          ) : post.post_type === 'hobby' ? (
+            <span className="post-type-tag tag-hobby" style={{ fontSize: '9px', padding: '1px 5px' }}>
+              🎨 {post.hobby_tag || 'Hobby'} (20%)
+            </span>
+          ) : (
+            <span className="post-type-tag tag-field" style={{ fontSize: '9px', padding: '1px 5px' }}>
+              💼 {post.field_tag || post.profiles?.role || 'Field'} (70%)
+            </span>
+          )}
+        </div>
         <b>{post.title}</b>
         <small>@{post.profiles?.username || 'creator'}</small>
         <small>
@@ -261,6 +285,35 @@ export function PostCard({ post, expanded = false }: { post: Post; expanded?: bo
 
       {/* Post Text Description */}
       <div className="post-copy">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, flexWrap: 'wrap', gap: 6 }}>
+          {(post.post_type === 'ad' || post.is_ad) ? (
+            <>
+              <span className="post-type-tag tag-ad">
+                📢 Sponsored · {post.sponsor_name || 'Brand Partner'} (10% Feed)
+              </span>
+              {post.ad_cta_label && (
+                <a
+                  href={post.ad_cta_url || '#'}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="post-ad-cta-button"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {post.ad_cta_label} ↗
+                </a>
+              )}
+            </>
+          ) : post.post_type === 'hobby' ? (
+            <span className="post-type-tag tag-hobby">
+              🎨 Hobby: {post.hobby_tag || 'Creative Passion'} (20% Feed)
+            </span>
+          ) : (
+            <span className="post-type-tag tag-field">
+              💼 {post.field_tag || post.profiles?.role || 'Creator'} Field (70% Feed)
+            </span>
+          )}
+        </div>
+        <h4 style={{ fontSize: '15px', color: '#fff', margin: '0 0 6px 0', fontWeight: 600 }}>{post.title}</h4>
         <p>
           {expanded
             ? post.description

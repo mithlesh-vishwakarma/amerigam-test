@@ -16,6 +16,10 @@ export function FloatingPillNav() {
   const isCreate = path === '/create';
   const isMessages = path === '/messages';
 
+  if (isMessages) {
+    return null;
+  }
+
   const handleClick = (target: string) => {
     if (path !== target) {
       triggerPulse();
